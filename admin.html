@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Admin · Control Center</title>
+<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<style>
+:root{color-scheme:dark}*{box-sizing:border-box;margin:0}
+html,body{height:100%;background:#000;color:#fff;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}
+.app{display:grid;grid-template-columns:1fr 340px;height:100%}
+.pv{position:relative;border-right:1px solid #222;min-height:0}
+aside{display:flex;flex-direction:column;min-height:0;overflow:auto}
+header,section{padding:14px;border-bottom:1px solid #222}
+header{display:flex;gap:12px;flex-wrap:wrap;align-items:center;font-size:12px;color:#8a8a8a}
+header b{color:#fff;font-size:14px}
+h3{font-size:12px;color:#8a8a8a;font-weight:600;margin-bottom:10px}
+.g{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+button,input{background:#000;color:#fff;border:1px solid #333;border-radius:8px;padding:9px 10px;font:inherit}
+button{cursor:pointer}button:hover{border-color:#fff}button.on{background:#fff;color:#000}
+button.red{border-color:#a33;color:#f66}
+input{width:100%;outline:none}input:focus{border-color:#fff}
+.chat{flex:1;display:flex;flex-direction:column;min-height:200px}
+#log{flex:1;overflow:auto;margin-bottom:8px;font-size:13px}#log div{padding:3px 0;border-bottom:1px solid #111}
+.row{display:flex;gap:8px}
+.stage{position:absolute;inset:0;display:grid;gap:8px;padding:8px;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr)}
+.tile{position:relative;min-height:0;background:#000;border:1px solid #222;border-radius:10px;overflow:hidden;animation:in .35s}
+.tile video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
+.tile b{position:absolute;left:8px;top:8px;z-index:2;font-size:11px;padding:2px 8px;border:1px solid #333;background:#000c;border-radius:20px}
+@keyframes in{from{opacity:0;transform:scale(.96)}}
+[data-l=admin] .tile:not([data-g=admin]),[data-l=user] .tile:not([data-g=guest]),[data-l=both] .tile[data-g=screen],[data-l=screen] .tile:not([data-g=screen]),[data-l=pip] .tile:not([data-g=screen]):not([data-s=a-cam]){display:none}
+[data-l=pip] .tile[data-s=a-cam]{position:absolute;right:20px;bottom:20px;width:24%;aspect-ratio:16/9;z-index:3;border-color:#fff}
+[data-l=all]{grid-auto-flow:row;grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-rows:minmax(0,1fr);grid-template-rows:none}
+#empty{position:absolute;inset:0;display:none;align-items:center;justify-content:center;color:#555;pointer-events:none}
+#end{position:fixed;inset:0;z-index:9;background:#000;display:none;flex-direction:column;gap:16px;align-items:center;justify-content:center}
+@media(max-width:800px){.app{grid-template-columns:1fr;grid-template-rows:42vh auto;height:auto;min-height:100%}.pv{height:42vh;border-right:0;border-bottom:1px solid #222}}
+</style></head><body>
+<div class="app">
+  <main class="pv"><div id="stage" class="stage" data-l="both"></div><div id="empty">No active feeds. Start your camera or wait for the guest.</div></main>
+  <aside>
+    <header><b>Control Center</b><span id="st">Connecting…</span><span id="gs">Guest offline</span><span id="vc">0 viewers</span></header>
+    <section><h3>Live Layout Control</h3><div class="g" id="lay"></div></section>
+    <section><h3>Controls</h3><div class="g">
+      <button id="bCam">Camera</button><button id="bSw">Switch Camera</button>
+      <button id="bScr">Screen Share</button><button id="bMic">Start Mic</button>
+      <button id="cU">Copy Guest Link</button><button id="cV">Copy Viewer Link</button>
+      <button id="bHang" class="red" style="grid-column:1/3">Hang Up</button></div></section>
+    <section class="chat"><h3>Chat</h3><div id="log"></div>
+      <div class="row"><input id="msg" placeholder="Message guest…" autocomplete="off"><button id="snd">Send</button></div></section>
+  </aside>
+</div>
+<div id="end"><div>Session ended</div><button onclick="location.reload()">Start again</button></div>
+<script>
+const $=i=>document.getElementById(i),stage=$('stage'),tiles={};
+const q=new URLSearchParams(location.search),room=(q.get('room')||'podcast1').replace(/[^\w-]/g,''),AID=room+'-admin';
+/* ---- tile / layout engine (same as viewer) ---- */
+const lab=s=>(s[0]=='a'?'ADMIN':'GUEST')+(s.includes('screen')?' · SCREEN':s.endsWith('2')?' · CAM 2':'');
+function chk(){$('empty').style.display=[...stage.children].some(t=>t.offsetParent)?'none':'flex'}
+function setLayout(l){stage.dataset.l=l;[...stage.children].forEach(t=>{t.style.animation='none';t.offsetWidth;t.style.animation=''});chk()}
+function rmSlot(s){tiles[s]&&tiles[s].remove();delete tiles[s];chk()}
+function addSlot(s,st,mute){
+  rmSlot(s);const a=!st.getVideoTracks().length,m=document.createElement(a?'audio':'video');
+  m.srcObject=st;m.autoplay=true;m.playsInline=true;m.muted=mute;
+  if(a){document.body.append(m);tiles[s]=m}
+  else{const t=document.createElement('div');t.className='tile';t.dataset.s=s;
+    t.dataset.g=s.includes('screen')?'screen':s[0]=='a'?'admin':'guest';
+    t.innerHTML='<b>'+lab(s)+'</b>';t.prepend(m);stage.append(t);tiles[s]=t}
+  m.play().catch(()=>{});chk()}
+document.addEventListener('click',()=>document.querySelectorAll('video,audio').forEach(m=>m.play().catch(()=>{})));
+
+/* ---- state & peer ---- */
+let userConn=null,layout='both',face='user';
+const src={},calls={},rc={},remote={},viewers={};
+const status=t=>$('st').textContent=t,gs=t=>$('gs').textContent=t,vc=()=>$('vc').textContent=Object.keys(viewers).length+' viewers';
+const peer=new Peer(AID);
+peer.on('open',()=>status('Online · '+room));
+peer.on('disconnected',()=>peer.reconnect());
+peer.on('error',e=>status(e.type=='unavailable-id'?'Admin is already open elsewhere':'Error: '+e.type));
+
+/* ---- outgoing calls: one call per (peer, slot) ---- */
+const targets=s=>[...(s[0]=='a'&&userConn&&userConn.open?[userConn.peer]:[]),...Object.keys(viewers)];
+function pub(id,s,st){const k=id+'|'+s;try{calls[k]&&calls[k].close()}catch(e){}calls[k]=peer.call(id,st,{metadata:{slot:s}})}
+const publish=(s,st)=>targets(s).forEach(id=>pub(id,s,st));
+function unpublish(s){for(const k in calls)if(k.split('|')[1]===s){try{calls[k].close()}catch(e){}delete calls[k]}}
+function drop(id){for(const k in calls)if(k.split('|')[0]===id){try{calls[k].close()}catch(e){}delete calls[k]}}
+
+/* ---- incoming data connections (guest + viewers) ---- */
+peer.on('connection',c=>{
+  const isV=!!(c.metadata&&c.metadata.role=='viewer');
+  c.on('open',()=>{
+    if(isV){viewers[c.peer]=c;c.send({t:'layout',v:layout});
+      Object.keys(src).forEach(k=>pub(c.peer,'a-'+k,src[k]));
+      Object.keys(remote).forEach(s=>pub(c.peer,s,remote[s]));vc()}
+    else{userConn=c;gs('Guest connected');Object.keys(src).forEach(k=>pub(c.peer,'a-'+k,src[k]))}});
+  c.on('data',d=>{if(!isV&&d&&d.t=='chat')log('Guest',d.v)});
+  c.on('close',()=>{if(isV){delete viewers[c.peer];drop(c.peer);vc()}else if(userConn===c){userConn=null;gs('Guest offline')}});
+});
+/* ---- incoming media from guest: show + relay to viewers ---- */
+peer.on('call',c=>{
+  const k=c.metadata&&c.metadata.slot;if(!k)return;c.answer();const s='u-'+k;rc[s]=c;
+  c.on('stream',st=>{if(remote[s]&&remote[s].id==st.id)return;remote[s]=st;addSlot(s,st,false);publish(s,st)});
+  c.on('close',()=>{if(rc[s]!==c)return;delete rc[s];delete remote[s];rmSlot(s);unpublish(s)});
+});
+
+/* ---- local sources ---- */
+async function start(k){
+  if(src[k])return;let st;
+  try{st=k=='cam'?await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:face},width:{ideal:1280}}}):
+    k=='mic'?await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}}):
+    await navigator.mediaDevices.getDisplayMedia({video:true,audio:true})}
+  catch(e){status(k+': '+e.message);return}
+  src[k]=st;if(k!='mic')addSlot('a-'+k,st,true);publish('a-'+k,st);
+  st.getTracks()[0].onended=()=>stop(k);ui();
+}
+function stop(k){const st=src[k];if(!st)return;st.getTracks().forEach(t=>t.stop());delete src[k];unpublish('a-'+k);rmSlot('a-'+k);ui()}
+function ui(){
+  $('bCam').classList.toggle('on',!!src.cam);$('bScr').classList.toggle('on',!!src.screen);
+  const m=src.mic,en=m&&m.getAudioTracks()[0].enabled;
+  $('bMic').textContent=!m?'Start Mic':en?'Mute':'Unmute';$('bMic').classList.toggle('on',!!m&&!en);
+}
+$('bCam').onclick=()=>src.cam?stop('cam'):start('cam');
+$('bScr').onclick=()=>src.screen?stop('screen'):start('screen');
+$('bSw').onclick=()=>{face=face=='user'?'environment':'user';if(src.cam){stop('cam');start('cam')}};
+$('bMic').onclick=()=>{if(!src.mic)return start('mic');const t=src.mic.getAudioTracks()[0];t.enabled=!t.enabled;ui()};
+$('bHang').onclick=()=>{Object.keys(src).forEach(stop);peer.destroy();$('end').style.display='flex'};
+
+/* ---- live layout control ---- */
+const LAY=[['admin','Show Admin Only'],['user','Show User Only'],['both','Show Both Side-by-Side'],['screen','Show Screen Share Only'],['pip','Show Screen + Admin PiP'],['all','Show All Elements']];
+LAY.forEach(([v,t])=>{const b=document.createElement('button');b.textContent=t;b.dataset.v=v;b.onclick=()=>setL(v);$('lay').append(b)});
+function setL(v){layout=v;setLayout(v);Object.values(viewers).forEach(c=>c.open&&c.send({t:'layout',v}));
+  [...$('lay').children].forEach(b=>b.classList.toggle('on',b.dataset.v==v))}
+setL('both');
+
+/* ---- invite links ---- */
+function copy(p){const u=new URL(p+'?room='+room,location.href).href;
+  (navigator.clipboard?navigator.clipboard.writeText(u):Promise.reject()).then(()=>status('Link copied'),()=>prompt('Copy this link:',u))}
+$('cU').onclick=()=>copy('user.html');$('cV').onclick=()=>copy('viewer.html');
+
+/* ---- chat ---- */
+function log(w,t){const d=document.createElement('div');d.textContent=w+': '+t;$('log').append(d);$('log').scrollTop=1e9}
+function send(){const v=$('msg').value.trim();if(!v||!userConn||!userConn.open)return;userConn.send({t:'chat',v});log('You',v);$('msg').value=''}
+$('snd').onclick=send;$('msg').onkeydown=e=>{if(e.key=='Enter')send()};
+
+start('cam').then(()=>start('mic'));
+</script></body></html>
