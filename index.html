@@ -1,111 +1,615 @@
-<!DOCTYPE html>
-<html lang="en"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Guest · Podcast</title>
-<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Serverless WebRTC · Manual Signaling</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;800&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
 <style>
-:root{color-scheme:dark}*{box-sizing:border-box;margin:0}
-html,body{height:100%;background:#000;color:#fff;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}
-.app{display:grid;grid-template-columns:1fr 320px;grid-template-rows:auto 1fr auto;height:100%}
-header{grid-column:1/3;display:flex;gap:12px;align-items:center;padding:12px 14px;border-bottom:1px solid #222;font-size:12px;color:#8a8a8a}
-header b{color:#fff;font-size:14px}
-.stage{overflow:auto;padding:8px;display:grid;gap:8px;align-content:start;grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
-.tile{position:relative;aspect-ratio:16/9;background:#000;border:1px solid #222;border-radius:10px;overflow:hidden;animation:in .35s}
-.tile video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
-.tile b{position:absolute;left:8px;top:8px;z-index:2;font-size:11px;padding:2px 8px;border:1px solid #333;background:#000c;border-radius:20px}
-@keyframes in{from{opacity:0;transform:scale(.96)}}
-#empty{padding:40px;color:#555;text-align:center;grid-column:1/-1}
-aside{border-left:1px solid #222;display:flex;flex-direction:column;padding:14px;min-height:0}
-h3{font-size:12px;color:#8a8a8a;font-weight:600;margin-bottom:10px}
-#log{flex:1;overflow:auto;margin-bottom:8px;font-size:13px}#log div{padding:3px 0;border-bottom:1px solid #111}
-.row{display:flex;gap:8px}
-button,input{background:#000;color:#fff;border:1px solid #333;border-radius:8px;padding:10px 14px;font:inherit}
-button{cursor:pointer}button:hover{border-color:#fff}button.on{background:#fff;color:#000}
-input{width:100%;outline:none}input:focus{border-color:#fff}
-.bar{grid-column:1/3;display:flex;gap:8px;flex-wrap:wrap;justify-content:center;padding:12px;border-top:1px solid #222}
-@media(max-width:800px){.app{grid-template-columns:1fr;grid-template-rows:auto 1fr auto 240px;height:100%}header,.bar{grid-column:1}aside{border-left:0;border-top:1px solid #222}}
-</style></head><body>
-<div class="app">
-  <header><b>Podcast Guest</b><span id="st">Connecting…</span></header>
-  <div class="stage" id="stage"><div id="empty">Turn on your camera or microphone below. The host's feed will appear here.</div></div>
-  <aside><h3>Chat</h3><div id="log"></div>
-    <div class="row"><input id="msg" placeholder="Message host…" autocomplete="off"><button id="snd">Send</button></div></aside>
-  <div class="bar">
-    <button id="bF">Front Camera</button><button id="bB">Back Camera</button><button id="bD">Dual Camera</button>
-    <button id="bS">Screen Share</button><button id="bM">Microphone</button>
+  :root {
+    --bg: #000000;
+    --fg: #ffffff;
+    --muted: rgba(255, 255, 255, 0.55);
+    --line: rgba(255, 255, 255, 0.16);
+    --line-strong: rgba(255, 255, 255, 0.55);
+    --glow: 0 0 0 1px #fff, 0 0 18px rgba(255, 255, 255, 0.35);
+    --radius: 14px;
+    --sans: "Manrope", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+
+  html, body { margin: 0; background: var(--bg); color: var(--fg); }
+
+  body {
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .app {
+    max-width: 1120px;
+    margin: 0 auto;
+    padding: 40px 24px 64px;
+    display: grid;
+    gap: 24px;
+  }
+
+  header h1 {
+    margin: 0 0 6px;
+    font-size: 30px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+  }
+  header p { margin: 0; color: var(--muted); max-width: 60ch; }
+
+  /* Sections */
+  .panel {
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 24px;
+    background: var(--bg);
+  }
+  .panel > h2 {
+    margin: 0 0 4px;
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  .panel > .hint { margin: 0 0 20px; color: var(--muted); font-size: 13.5px; }
+
+  /* Connection */
+  .sdp-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+  .field { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+  .field label { font-size: 13.5px; font-weight: 500; }
+
+  textarea, input[type="text"] {
+    width: 100%;
+    background: var(--bg);
+    color: var(--fg);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 12px 14px;
+    font: inherit;
+    transition: border-color .2s, box-shadow .2s;
+  }
+  textarea {
+    min-height: 150px;
+    resize: vertical;
+    font-family: var(--mono);
+    font-size: 12.5px;
+    line-height: 1.5;
+  }
+  textarea::placeholder, input::placeholder { color: rgba(255, 255, 255, 0.3); }
+  textarea:focus, input[type="text"]:focus {
+    outline: none;
+    border-color: #fff;
+    box-shadow: 0 0 14px rgba(255, 255, 255, 0.18);
+  }
+
+  .actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 20px; }
+
+  /* Buttons */
+  button {
+    font: inherit;
+    font-weight: 600;
+    color: var(--fg);
+    background: var(--bg);
+    border: 1px solid var(--line-strong);
+    border-radius: 10px;
+    padding: 11px 20px;
+    cursor: pointer;
+    transition: box-shadow .2s, border-color .2s, background .2s, color .2s;
+  }
+  button:hover { border-color: #fff; box-shadow: var(--glow); }
+  button:active { transform: translateY(1px); }
+  button:focus-visible, textarea:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+  button.primary { background: #fff; color: #000; border-color: #fff; }
+  button.primary:hover { box-shadow: 0 0 22px rgba(255, 255, 255, 0.6); }
+  button[aria-pressed="true"] { border-color: #fff; background: rgba(255, 255, 255, 0.1); }
+  button:disabled { opacity: .4; cursor: not-allowed; box-shadow: none; }
+
+  /* Video */
+  .videos { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .video-card { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+  .video-card figcaption { font-size: 13.5px; font-weight: 500; }
+  .video-card { margin: 0; }
+  video {
+    width: 100%;
+    aspect-ratio: 16 / 10;
+    object-fit: cover;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    display: block;
+  }
+
+  /* Chat + voice */
+  .lower { display: grid; grid-template-columns: 1fr 280px; gap: 24px; align-items: start; }
+
+  .chat-log {
+    height: 280px;
+    overflow-y: auto;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
+  }
+  .chat-log .empty { margin: auto; color: var(--muted); font-size: 13.5px; text-align: center; }
+  .msg { max-width: 78%; padding: 8px 12px; border-radius: 10px; border: 1px solid var(--line); word-break: break-word; }
+  .msg.me { align-self: flex-end; background: #fff; color: #000; border-color: #fff; }
+  .msg.peer { align-self: flex-start; }
+
+  .chat-form { display: flex; gap: 12px; margin-top: 14px; }
+  .chat-form input { flex: 1; }
+
+  .voice { display: flex; flex-direction: column; gap: 14px; }
+  .voice .status { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 13.5px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: #fff; box-shadow: 0 0 8px #fff; }
+
+  .status-line {
+    margin: 18px 0 0;
+    padding-left: 12px;
+    min-height: 1.55em;
+    color: var(--muted);
+    font-size: 13.5px;
+    border-left: 2px solid var(--line);
+  }
+  .status-line[data-kind="ok"] { color: var(--fg); border-left-color: #fff; }
+  .status-line[data-kind="error"] { color: var(--fg); border-left-color: #ff5c5c; }
+  .msg.sys { align-self: center; max-width: 100%; border: none; padding: 2px 0; color: var(--muted); font-size: 12.5px; }
+
+  @media (max-width: 820px) {
+    .sdp-grid, .videos, .lower { grid-template-columns: 1fr; }
+    .app { padding: 24px 16px 48px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; }
+  }
+</style>
+</head>
+<body>
+<main class="app">
+
+  <header>
+    <h1>Serverless WebRTC</h1>
+    <p>Connect two browsers directly by exchanging connection codes by hand. No server involved.</p>
+  </header>
+
+  <!-- 1. Connection Panel -->
+  <section class="panel" id="connection" aria-labelledby="connection-title">
+    <h2 id="connection-title">Connection</h2>
+    <p class="hint">Generate an offer, send it to your peer, then paste their reply and connect.</p>
+
+    <div class="sdp-grid">
+      <div class="field">
+        <label for="localSdp">Your Local SDP</label>
+        <textarea id="localSdp" readonly placeholder="Your offer or answer appears here. Copy it and send it to your peer."></textarea>
+      </div>
+      <div class="field">
+        <label for="remoteSdp">Paste Remote SDP</label>
+        <textarea id="remoteSdp" placeholder="Paste your peer's offer or answer here."></textarea>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button id="generateOffer" class="primary" type="button">Generate Offer</button>
+      <button id="connect" type="button">Connect</button>
+    </div>
+    <p class="status-line" id="status" role="status" aria-live="polite">Not connected.</p>
+  </section>
+
+  <!-- 2. Video Call Section -->
+  <section class="panel" id="video" aria-labelledby="video-title">
+    <h2 id="video-title">Video call</h2>
+    <p class="hint">Your camera on the left, your peer on the right.</p>
+
+    <div class="videos">
+      <figure class="video-card">
+        <video id="localVideo" autoplay playsinline muted></video>
+        <figcaption>You</figcaption>
+      </figure>
+      <figure class="video-card">
+        <video id="remoteVideo" autoplay playsinline></video>
+        <figcaption>Remote peer</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- 3 + 4. Chat and Voice -->
+  <div class="lower">
+    <section class="panel" id="chat" aria-labelledby="chat-title">
+      <h2 id="chat-title">Chat</h2>
+      <p class="hint">Messages travel directly between you and your peer.</p>
+
+      <div class="chat-log" id="chatLog" role="log" aria-live="polite">
+        <p class="empty">No messages yet. Connect with a peer to start chatting.</p>
+      </div>
+
+      <div class="chat-form">
+        <input type="text" id="chatInput" placeholder="Type a message" aria-label="Message">
+        <button id="sendMessage" class="primary" type="button">Send Message</button>
+      </div>
+    </section>
+
+    <section class="panel voice" id="voice" aria-labelledby="voice-title">
+      <h2 id="voice-title">Voice</h2>
+      <div class="status"><span class="dot" aria-hidden="true"></span><span id="micStatus">Microphone on</span></div>
+      <button id="muteToggle" type="button" aria-pressed="false">Mute Microphone</button>
+    </section>
   </div>
-</div>
+
+</main>
+
 <script>
-const $=i=>document.getElementById(i),stage=$('stage'),tiles={};
-const q=new URLSearchParams(location.search),room=(q.get('room')||'podcast1').replace(/[^\w-]/g,''),AID=room+'-admin',UID=room+'-user';
-const lab=s=>s[0]=='a'?'ADMIN'+(s.includes('screen')?' · SCREEN':''):'YOU'+(s.includes('screen')?' · SCREEN':s.endsWith('2')?' · CAM 2':'');
-function chk(){$('empty').style.display=Object.values(tiles).some(t=>t.className=='tile')?'none':'block'}
-function rmSlot(s){tiles[s]&&tiles[s].remove();delete tiles[s];chk()}
-function addSlot(s,st,mute){
-  rmSlot(s);const a=!st.getVideoTracks().length,m=document.createElement(a?'audio':'video');
-  m.srcObject=st;m.autoplay=true;m.playsInline=true;m.muted=mute;
-  if(a){document.body.append(m);tiles[s]=m}
-  else{const t=document.createElement('div');t.className='tile';t.innerHTML='<b>'+lab(s)+'</b>';t.prepend(m);stage.append(t);tiles[s]=t}
-  m.play().catch(()=>{});chk()}
-document.addEventListener('click',()=>document.querySelectorAll('video,audio').forEach(m=>m.play().catch(()=>{})));
+(() => {
+  'use strict';
 
-let conn=null;const src={},face={},calls={},rc={};
-const status=t=>$('st').textContent=t;
-const peer=new Peer(UID);
-peer.on('open',connect);
-peer.on('disconnected',()=>peer.reconnect());
-peer.on('error',e=>{
-  if(e.type=='peer-unavailable'){status('Waiting for host…');setTimeout(connect,2500)}
-  else status(e.type=='unavailable-id'?'Guest link already open elsewhere':'Error: '+e.type)});
+  // A public STUN server lets peers on different networks discover their public address.
+  // It is not a signaling server: it never sees your SDP or media. Remove it for LAN-only use.
+  const RTC_CONFIG = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+  const ICE_TIMEOUT_MS = 5000;
 
-function connect(){
-  if(conn&&conn.open)return;
-  conn=peer.connect(AID,{metadata:{role:'user'}});const c=conn;
-  c.on('open',()=>{status('Connected to host');Object.keys(src).forEach(k=>send(k,src[k]))});
-  c.on('data',d=>{if(d&&d.t=='chat')log('Host',d.v)});
-  c.on('close',()=>{status('Reconnecting…');setTimeout(connect,2500)});
-}
-function send(k,st){
-  if(!conn||!conn.open)return;
-  try{calls[k]&&calls[k].close()}catch(e){}
-  calls[k]=peer.call(AID,st,{metadata:{slot:k}});
-}
-/* media coming from the host */
-peer.on('call',c=>{
-  const s=c.metadata&&c.metadata.slot;if(!s)return;c.answer();rc[s]=c;
-  c.on('stream',st=>addSlot(s,st,false));
-  c.on('close',()=>{if(rc[s]===c){delete rc[s];rmSlot(s)}});
-});
+  const $ = (id) => document.getElementById(id);
+  const el = {
+    generate: $('generateOffer'), connect: $('connect'),
+    localSdp: $('localSdp'), remoteSdp: $('remoteSdp'), status: $('status'),
+    localVideo: $('localVideo'), remoteVideo: $('remoteVideo'),
+    chatLog: $('chatLog'), chatInput: $('chatInput'), send: $('sendMessage'),
+    mute: $('muteToggle'), micStatus: $('micStatus')
+  };
 
-/* local sources: cam (front/back), cam2 (dual's back camera), screen, mic */
-async function start(k,f){
-  stop(k);let st;
-  try{st=k=='screen'?await navigator.mediaDevices.getDisplayMedia({video:true,audio:true}):
-    await navigator.mediaDevices.getUserMedia(k=='mic'?{audio:{echoCancellation:true,noiseSuppression:true}}:{video:{facingMode:{ideal:f},width:{ideal:1280}}})}
-  catch(e){status(k+': '+e.message);return false}
-  src[k]=st;face[k]=f;if(k!='mic')addSlot('me-'+k,st,true);send(k,st);
-  st.getTracks()[0].onended=()=>stop(k);ui();return true;
-}
-function stop(k){
-  const st=src[k];if(!st)return;st.getTracks().forEach(t=>t.stop());delete src[k];
-  try{calls[k]&&calls[k].close()}catch(e){}delete calls[k];rmSlot('me-'+k);ui();
-}
-function ui(){
-  const on=(i,v)=>$(i).classList.toggle('on',!!v);
-  on('bF',src.cam&&face.cam=='user'&&!src.cam2);on('bB',src.cam&&face.cam=='environment'&&!src.cam2);
-  on('bD',src.cam2);on('bS',src.screen);on('bM',src.mic);
-}
-const camBtn=f=>()=>{if(src.cam&&face.cam==f&&!src.cam2)stop('cam');else{stop('cam2');start('cam',f)}};
-$('bF').onclick=camBtn('user');$('bB').onclick=camBtn('environment');
-$('bD').onclick=async()=>{
-  if(src.cam2){stop('cam2');stop('cam');return}
-  await start('cam','user');
-  if(!await start('cam2','environment'))status('This device cannot run two cameras at once');
-};
-$('bS').onclick=()=>src.screen?stop('screen'):start('screen');
-$('bM').onclick=()=>src.mic?stop('mic'):start('mic');
+  let pc = null;
+  let dataChannel = null;
+  let localStream = null;
+  let remoteStream = null;
+  let busy = false;
 
-function log(w,t){const d=document.createElement('div');d.textContent=w+': '+t;$('log').append(d);$('log').scrollTop=1e9}
-function sendMsg(){const v=$('msg').value.trim();if(!v||!conn||!conn.open)return;conn.send({t:'chat',v});log('You',v);$('msg').value=''}
-$('snd').onclick=sendMsg;$('msg').onkeydown=e=>{if(e.key=='Enter')sendMsg()};
-</script></body></html>
+  /* ---------- UI helpers ---------- */
+
+  function setStatus(text, kind = 'info') {
+    el.status.textContent = text;
+    el.status.dataset.kind = kind;
+  }
+
+  function setBusy(value) {
+    busy = value;
+    el.generate.disabled = value;
+    el.connect.disabled = value;
+  }
+
+  function addMessage(text, who) {
+    const empty = el.chatLog.querySelector('.empty');
+    if (empty) empty.remove();
+    const div = document.createElement('div');
+    div.className = 'msg ' + who;
+    div.textContent = text; // textContent keeps incoming messages from injecting HTML
+    el.chatLog.appendChild(div);
+    el.chatLog.scrollTop = el.chatLog.scrollHeight;
+  }
+
+  function setChatEnabled(enabled) {
+    el.send.disabled = !enabled;
+    el.chatInput.disabled = !enabled;
+  }
+
+  function describeMediaError(err) {
+    switch (err && err.name) {
+      case 'NotAllowedError':
+      case 'SecurityError': return 'Camera or microphone access was blocked. Allow access in your browser and try again.';
+      case 'NotFoundError':
+      case 'OverconstrainedError': return 'No camera or microphone was found.';
+      case 'NotReadableError': return 'Your camera or microphone is in use by another app.';
+      default: return (err && err.message) || 'Could not access camera or microphone.';
+    }
+  }
+
+  /* ---------- Local media ---------- */
+
+  async function ensureLocalMedia() {
+    if (localStream) return localStream;
+
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      setStatus('Camera access needs a secure page (https:// or localhost). Continuing without local media.', 'error');
+      return null;
+    }
+
+    const attempts = [
+      { video: true, audio: true },   // preferred
+      { video: false, audio: true },  // fall back to voice only
+      { video: true, audio: false }   // fall back to video only
+    ];
+    let lastError = null;
+    for (const constraints of attempts) {
+      try {
+        localStream = await navigator.mediaDevices.getUserMedia(constraints);
+        break;
+      } catch (err) {
+        lastError = err;
+        if (err && err.name === 'NotAllowedError') break; // retrying will not help
+      }
+    }
+
+    if (!localStream) {
+      setStatus(describeMediaError(lastError) + ' You can still receive the remote video and chat.', 'error');
+      return null;
+    }
+
+    el.localVideo.srcObject = localStream;
+    const audioTrack = localStream.getAudioTracks()[0];
+    el.mute.disabled = !audioTrack;
+    updateMuteUi();
+    return localStream;
+  }
+
+  function addLocalTracks(connection) {
+    if (!localStream) return;
+    localStream.getTracks().forEach((track) => connection.addTrack(track, localStream));
+  }
+
+  function updateMuteUi() {
+    const track = localStream && localStream.getAudioTracks()[0];
+    const muted = !track || !track.enabled;
+    el.mute.setAttribute('aria-pressed', String(muted && !!track));
+    el.mute.textContent = muted && track ? 'Unmute Microphone' : 'Mute Microphone';
+    el.micStatus.textContent = !track ? 'No microphone' : (track.enabled ? 'Microphone on' : 'Microphone muted');
+  }
+
+  /* ---------- Peer connection ---------- */
+
+  function teardown() {
+    if (dataChannel) { dataChannel.onopen = dataChannel.onclose = dataChannel.onmessage = dataChannel.onerror = null; try { dataChannel.close(); } catch (_) {} }
+    if (pc) {
+      pc.ontrack = pc.onconnectionstatechange = pc.ondatachannel = pc.onicecandidate = null;
+      try { pc.close(); } catch (_) {}
+    }
+    dataChannel = null;
+    pc = null;
+    remoteStream = null;
+    el.remoteVideo.srcObject = null;
+    setChatEnabled(false);
+  }
+
+  function createPeerConnection() {
+    teardown();
+    pc = new RTCPeerConnection(RTC_CONFIG);
+    const connection = pc;
+
+    remoteStream = new MediaStream();
+    el.remoteVideo.srcObject = remoteStream;
+
+    connection.ontrack = (event) => {
+      const stream = event.streams && event.streams[0];
+      if (stream) {
+        el.remoteVideo.srcObject = stream;
+      } else {
+        remoteStream.addTrack(event.track);
+      }
+      el.remoteVideo.play().catch(() => {});
+    };
+
+    connection.ondatachannel = (event) => setupDataChannel(event.channel);
+
+    connection.onconnectionstatechange = () => {
+      if (connection !== pc) return;
+      switch (connection.connectionState) {
+        case 'connecting': setStatus('Connecting…'); break;
+        case 'connected': setStatus('Connected. You are now talking peer to peer.', 'ok'); break;
+        case 'disconnected': setStatus('Connection interrupted. Waiting to recover…', 'error'); break;
+        case 'failed': setStatus('Connection failed. Generate a new offer and exchange the codes again.', 'error'); setChatEnabled(false); break;
+        case 'closed': setChatEnabled(false); break;
+      }
+    };
+
+    return connection;
+  }
+
+  function setupDataChannel(channel) {
+    dataChannel = channel;
+    channel.onopen = () => {
+      setChatEnabled(true);
+      addMessage('Chat connected', 'sys');
+    };
+    channel.onclose = () => {
+      setChatEnabled(false);
+      addMessage('Chat closed', 'sys');
+    };
+    channel.onerror = () => addMessage('Chat error. Messages may not be delivered.', 'sys');
+    channel.onmessage = (event) => addMessage(String(event.data), 'peer');
+    if (channel.readyState === 'open') channel.onopen();
+  }
+
+  // Resolves once ICE gathering is finished (or after a timeout, using whatever was gathered).
+  function waitForIceGathering(connection) {
+    return new Promise((resolve) => {
+      if (connection.iceGatheringState === 'complete') return resolve();
+      let done = false;
+      const finish = () => {
+        if (done) return;
+        done = true;
+        clearTimeout(timer);
+        connection.removeEventListener('icegatheringstatechange', onChange);
+        resolve();
+      };
+      const onChange = () => { if (connection.iceGatheringState === 'complete') finish(); };
+      const timer = setTimeout(finish, ICE_TIMEOUT_MS);
+      connection.addEventListener('icegatheringstatechange', onChange);
+    });
+  }
+
+  function showLocalDescription(connection) {
+    el.localSdp.value = JSON.stringify(connection.localDescription);
+  }
+
+  /* ---------- Parsing the pasted SDP ---------- */
+
+  function parseRemoteSdp(raw) {
+    const text = raw.trim();
+    if (!text) throw new Error('Paste the remote SDP first.');
+
+    let type, sdp;
+    if (text.startsWith('{')) {
+      let obj;
+      try { obj = JSON.parse(text); } catch (_) { throw new Error('The pasted text looks like JSON but could not be read. Copy the whole code again.'); }
+      type = obj.type;
+      sdp = obj.sdp;
+    } else if (text.startsWith('v=0')) {
+      // Raw SDP carries no type, so infer it from where we are in the handshake.
+      sdp = text;
+      type = pc && pc.signalingState === 'have-local-offer' ? 'answer' : 'offer';
+    } else {
+      throw new Error('That does not look like an SDP. Paste the full code your peer sent.');
+    }
+
+    if ((type !== 'offer' && type !== 'answer') || typeof sdp !== 'string' || !sdp.includes('v=0')) {
+      throw new Error('The pasted SDP is incomplete or invalid.');
+    }
+    sdp = sdp.replace(/\r?\n/g, '\r\n').trimEnd() + '\r\n';
+    return { type, sdp };
+  }
+
+  /* ---------- Actions ---------- */
+
+  async function generateOffer() {
+    if (busy) return;
+    setBusy(true);
+    el.localSdp.value = '';
+    try {
+      setStatus('Requesting camera and microphone…');
+      await ensureLocalMedia();
+
+      const connection = createPeerConnection();
+      addLocalTracks(connection);
+      // With no local camera or mic, still ask to receive the peer's media.
+      if (!localStream || !localStream.getVideoTracks().length) connection.addTransceiver('video', { direction: 'recvonly' });
+      if (!localStream || !localStream.getAudioTracks().length) connection.addTransceiver('audio', { direction: 'recvonly' });
+
+      setupDataChannel(connection.createDataChannel('chat'));
+
+      setStatus('Creating offer and gathering network candidates…');
+      await connection.setLocalDescription(await connection.createOffer());
+      await waitForIceGathering(connection);
+      if (connection !== pc) return;
+
+      showLocalDescription(connection);
+      setStatus('Offer ready. Copy "Your Local SDP", send it to your peer, then paste their answer and press Connect.', 'ok');
+    } catch (err) {
+      console.error(err);
+      setStatus('Could not create the offer: ' + (err.message || err), 'error');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function connectPeer() {
+    if (busy) return;
+    let remote;
+    try {
+      remote = parseRemoteSdp(el.remoteSdp.value);
+    } catch (err) {
+      setStatus(err.message, 'error');
+      return;
+    }
+
+    setBusy(true);
+    try {
+      if (remote.type === 'answer') {
+        if (!pc || pc.signalingState !== 'have-local-offer') {
+          throw new Error('No pending offer. Press Generate Offer first, then paste the answer.');
+        }
+        setStatus('Applying answer…');
+        await pc.setRemoteDescription(remote);
+        setStatus('Answer applied. Establishing the connection…');
+        return;
+      }
+
+      // Remote is an offer: we are the answering side.
+      setStatus('Requesting camera and microphone…');
+      await ensureLocalMedia();
+
+      const connection = createPeerConnection();
+      setStatus('Reading offer and creating answer…');
+      await connection.setRemoteDescription(remote);
+      addLocalTracks(connection);
+      await connection.setLocalDescription(await connection.createAnswer());
+      await waitForIceGathering(connection);
+      if (connection !== pc) return;
+
+      showLocalDescription(connection);
+      setStatus('Answer ready. Copy "Your Local SDP" and send it back to the peer who sent the offer.', 'ok');
+    } catch (err) {
+      console.error(err);
+      setStatus('Could not connect: ' + (err.message || err), 'error');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function sendMessage() {
+    const text = el.chatInput.value.trim();
+    if (!text) return;
+    if (!dataChannel || dataChannel.readyState !== 'open') {
+      setStatus('Chat is not connected yet.', 'error');
+      return;
+    }
+    try {
+      dataChannel.send(text);
+      addMessage(text, 'me');
+      el.chatInput.value = '';
+    } catch (err) {
+      console.error(err);
+      setStatus('Message could not be sent: ' + (err.message || err), 'error');
+    }
+  }
+
+  function toggleMute() {
+    const track = localStream && localStream.getAudioTracks()[0];
+    if (!track) {
+      setStatus('No microphone is available to mute.', 'error');
+      return;
+    }
+    track.enabled = !track.enabled;
+    updateMuteUi();
+  }
+
+  /* ---------- Wiring ---------- */
+
+  el.generate.addEventListener('click', generateOffer);
+  el.connect.addEventListener('click', connectPeer);
+  el.send.addEventListener('click', sendMessage);
+  el.chatInput.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); sendMessage(); }
+  });
+  el.mute.addEventListener('click', toggleMute);
+  el.localSdp.addEventListener('focus', () => el.localSdp.select());
+
+  window.addEventListener('pagehide', () => {
+    teardown();
+    if (localStream) localStream.getTracks().forEach((t) => t.stop());
+  });
+
+  if (!window.RTCPeerConnection) {
+    setStatus('This browser does not support WebRTC.', 'error');
+    el.generate.disabled = true;
+    el.connect.disabled = true;
+  }
+
+  setChatEnabled(false);
+  el.mute.disabled = true;
+  el.micStatus.textContent = 'Microphone off until you start';
+})();
+</script>
+</body>
+</html>
