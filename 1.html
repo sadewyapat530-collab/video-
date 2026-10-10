@@ -234,7 +234,7 @@
 <main class="lobby" id="lobby">
   <form class="card" id="joinForm">
     <h1>Join a room</h1>
-    <p>Two people can call in a room. Anyone with the same room name can watch through the viewer page.</p>
+    <p>Two people can call in a room.</p>
     <div>
       <label for="room">Room name</label>
       <input id="room" autocomplete="off" spellcheck="false" placeholder="my-secure-room" maxlength="64">
@@ -395,7 +395,6 @@
 
   // Free public PeerJS cloud server is used only for signaling. Add a TURN server here if peers sit behind strict NATs.
   const ICE = [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }];
-  const MAX_VIEWERS = 4;
   const $ = (id) => document.getElementById(id);
   const el = {
     lobby: $('lobby'), call: $('call'), form: $('joinForm'), room: $('room'), joinBtn: $('joinBtn'), lobbyMsg: $('lobbyMsg'),
@@ -410,8 +409,10 @@
   let chatOn = false, typingEl = null, typingHide = null, typingSent = 0, typingStop = null;
   let myName = '', peerName = '', activeTab = 'chat', callMode = 'video', unread = 0, timerId = null, callStart = 0, facing = 'user', flipping = false;
 
-  let peer, key, slot, stream, camTrack, screenTrack, partnerConn, partnerCall, pollTimer, connecting, left;
-  const viewers = new Map(); // viewer peer id -> { conn, call }
+  let peer, key, slot, micTrack, camTrack, screenTrack, partnerConn, partnerCall, pollTimer, connecting, left;
+  // In-memory only (wiped by any page refresh): which permissions the user has granted during this page session.
+  const sessionPerm = { audio: false, video: false };
+  let placeholderMedia = null, mediaQueue = Promise.resolve();
 
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const idFor = (k, s) => `pcall1-${k}-s${s}`;
@@ -494,6 +495,7 @@
     Object.keys(views).forEach((k) => { views[k].hidden = k !== name; });
     if (name === 'video') layoutTiles(false); // place the two windows before the first paint
     if (name === 'chat') { unread = 0; el.badge.hidden = true; el.log.scrollTop = el.log.scrollHeight; }
+    queueMedia(); // acquire / release hardware to match the tab that is now showing
   }
 
   function fmt(ms) { const s = Math.floor(ms / 1000), m = Math.floor(s / 60); return String(m).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); }
@@ -531,25 +533,107 @@
 
   /* ---------- Media ---------- */
 
-  async function getMedia() {
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error('Camera access needs https:// or localhost.');
-    let err;
-    for (const c of [{ video: true, audio: true }, { video: false, audio: true }]) { // second try: voice only
-      try { return await navigator.mediaDevices.getUserMedia(c); } catch (e) { err = e; if (e.name === 'NotAllowedError') break; }
-    }
-    throw err;
+  const liveTrack = (t) => !!t && t.readyState === 'live';
+
+  function stopTrack(t) {
+    if (!t) return;
+    try { t.onended = null; t.enabled = false; t.stop(); } catch (_) {}
+  }
+
+  /* Silent audio + blank video used only to open the call's audio/video senders without touching any hardware.
+     The real mic / camera tracks are swapped in (and out) with replaceTrack, so no renegotiation is needed. */
+  function placeholder() {
+    if (placeholderMedia) return placeholderMedia;
+    const c = document.createElement('canvas'); c.width = 320; c.height = 240;
+    const g = c.getContext('2d'); g.fillStyle = '#000'; g.fillRect(0, 0, c.width, c.height);
+    const video = c.captureStream ? c.captureStream(1).getVideoTracks()[0] : null;
+    let audio = null;
+    try { const AC = window.AudioContext || window.webkitAudioContext; audio = new AC().createMediaStreamDestination().stream.getAudioTracks()[0]; } catch (_) {}
+    placeholderMedia = { audio, video };
+    return placeholderMedia;
+  }
+  function outStream() { const p = placeholder(); return new MediaStream([p.audio, p.video].filter(Boolean)); }
+
+  async function syncSenders() { // what the other caller receives: real tracks when we have them, otherwise the placeholders
+    const pc = partnerCall && partnerCall.peerConnection;
+    if (!pc) return;
+    const p = placeholder();
+    const want = { audio: (liveTrack(micTrack) && micTrack) || p.audio, video: (liveTrack(screenTrack) && screenTrack) || (liveTrack(camTrack) && camTrack) || p.video };
+    await Promise.all(pc.getSenders().map((snd) => {
+      const kind = snd.track && snd.track.kind, t = kind && want[kind];
+      return t && snd.track !== t ? snd.replaceTrack(t).catch(() => {}) : null;
+    }));
+  }
+
+  function refreshControls() {
+    const a = liveTrack(micTrack), c = liveTrack(camTrack);
+    all('.js-mute').forEach((b) => { b.disabled = !a; });
+    el.cam.disabled = !c;
+    el.share.disabled = !c; el.share.title = c ? '' : 'Screen sharing needs a camera-enabled session';
+    if (c) checkCams(); else { el.flip.disabled = true; el.flip.title = 'Only one camera was found'; }
   }
 
   async function swapVideo(track) {
-    const calls = [partnerCall, ...[...viewers.values()].map((v) => v.call)].filter(Boolean);
-    await Promise.all(calls.map((c) => {
-      const s = c.peerConnection && c.peerConnection.getSenders().find((x) => x.track && x.track.kind === 'video');
-      return s ? s.replaceTrack(track).catch(() => {}) : null;
-    }));
-    stream.getVideoTracks().forEach((t) => stream.removeTrack(t));
-    stream.addTrack(track);
     el.local.srcObject = new MediaStream([track]);
     el.local.classList.toggle('mirror', track === camTrack && facing === 'user');
+    await syncSenders();
+  }
+
+  function releaseCam() { // stop and release the camera (and any screen share that rides on the video sender)
+    if (screenTrack) { const t = screenTrack; screenTrack = null; stopTrack(t); syncShare(false); }
+    const c = camTrack; camTrack = null; stopTrack(c);
+    el.local.srcObject = null; el.local.classList.remove('mirror');
+  }
+  function releaseMic() { const a = micTrack; micTrack = null; stopTrack(a); }
+
+  function queueMedia() { mediaQueue = mediaQueue.then(reconcileMedia).catch(() => {}); }
+
+  // Runs one at a time and always targets the tab showing *now*, so quick tab changes can never leave a device on.
+  async function reconcileMedia() {
+    const mode = activeTab;
+    if (mode === 'chat') { releaseMic(); releaseCam(); await syncSenders(); refreshControls(); sendOrientOff(); return; }
+    if (mode === 'voice') { releaseCam(); sendOrientOff(); }
+    const needMic = !liveTrack(micTrack), needCam = mode === 'video' && !liveTrack(camTrack);
+    if (needMic || needCam) await acquire({ audio: needMic, video: needCam });
+    await syncSenders(); refreshControls();
+    if (activeTab === 'video') sendOrient(true);
+  }
+
+  async function acquire(constraints) {
+    const md = navigator.mediaDevices;
+    if (!md || !md.getUserMedia) { setStatus('Camera access needs https:// or localhost.', 'error'); setTimeout(restoreStatus, 4000); return; }
+    let s = null, err = null;
+    try { s = await md.getUserMedia(constraints); }
+    catch (e) {
+      err = e;
+      if (constraints.video && constraints.audio && e.name !== 'NotAllowedError') { // no camera: fall back to voice only
+        try { s = await md.getUserMedia({ audio: true, video: false }); err = null; } catch (e2) { err = e2; }
+      }
+    }
+    if (!s) {
+      if (err && err.name === 'NotAllowedError') { if (constraints.audio) sessionPerm.audio = false; if (constraints.video) sessionPerm.video = false; }
+      setStatus(describe(err), 'error'); setTimeout(restoreStatus, 4000);
+      return;
+    }
+    const a = s.getAudioTracks()[0], v = s.getVideoTracks()[0];
+    if (a) {
+      sessionPerm.audio = true;
+      if (activeTab !== 'chat') {
+        micTrack = a; syncMute(false);
+        a.onended = () => { if (micTrack === a) { micTrack = null; syncSenders(); refreshControls(); } };
+      } else stopTrack(a);
+    }
+    if (v) {
+      sessionPerm.video = true;
+      if (activeTab === 'video') {
+        camTrack = v; syncCam(true);
+        facing = v.getSettings().facingMode === 'environment' ? 'environment' : 'user';
+        el.local.srcObject = new MediaStream([v]);
+        el.local.classList.toggle('mirror', facing === 'user');
+        v.onended = () => { if (camTrack === v) { camTrack = null; el.local.srcObject = null; syncSenders(); refreshControls(); } };
+        syncFlip();
+      } else stopTrack(v);
+    }
   }
 
   async function startShare() {
@@ -574,7 +658,7 @@
   }
 
   function toggleMute() {
-    const t = stream && stream.getAudioTracks()[0];
+    const t = liveTrack(micTrack) && micTrack;
     if (!t) return;
     t.enabled = !t.enabled;
     syncMute(!t.enabled);
@@ -611,9 +695,7 @@
 
   async function join(room) {
     key = roomKey(room);
-    stream = await getMedia();
-    camTrack = stream.getVideoTracks()[0] || null;
-    facing = camTrack && (camTrack.getSettings().facingMode === 'environment') ? 'environment' : 'user';
+    facing = 'user'; // no hardware is touched here: the mic / camera are only requested when a call tab is opened
     for (let round = 0; round < 3 && !peer; round++) {
       for (const s of [1, 2]) {
         try { peer = await openPeer(idFor(key, s)); slot = s; break; }
@@ -629,12 +711,8 @@
     peer.on('error', (e) => { if (e.type !== 'peer-unavailable') setStatus('Connection problem: ' + (e.message || e.type), 'error'); });
 
     el.roomLabel.textContent = room;
-    el.local.srcObject = new MediaStream(stream.getVideoTracks());
-    el.local.classList.toggle('mirror', !!camTrack && facing === 'user');
-    el.share.disabled = !camTrack;
-    el.share.title = camTrack ? '' : 'Screen sharing needs a camera-enabled session';
-    all('.js-mute').forEach((b) => { b.disabled = !stream.getAudioTracks()[0]; });
-    el.cam.disabled = !camTrack; syncMute(false); syncCam(true); syncFlip(); checkCams(); callMode = 'video'; clearSwitch();
+    el.local.srcObject = null; el.local.classList.remove('mirror');
+    refreshControls(); syncMute(false); syncCam(true); syncFlip(); callMode = 'video'; clearSwitch();
     el.lobby.hidden = true; el.call.hidden = false;
     setStatus(slot === 1 ? 'Waiting for the other caller…' : 'Looking for the other caller…');
     setTab('chat'); refreshNames(); openNameBox(true); // the app opens on Chat; the name box appears after joining the room
@@ -649,7 +727,7 @@
     conn.on('open', () => {
       clearTimeout(t); connecting = false;
       setPartner(conn);
-      setPartnerCall(peer.call(idFor(key, 1), stream, { metadata: { role: 'caller' } }));
+      setPartnerCall(peer.call(idFor(key, 1), outStream(), { metadata: { role: 'caller' } }));
     });
     conn.on('error', () => { clearTimeout(t); connecting = false; });
   }
@@ -673,7 +751,7 @@
     setChat(true);
     if (myName) sendJSON({ type: 'name', name: myName });
     if (myAvatar) sendJSON({ type: 'avatar', data: myAvatar });
-    sendOrient(); // let the other side know how this device is held
+    lastOrient = null; sendOrient(true); // only does anything during an active video call
     addMsg('The other caller joined', 'sys');
     setStatus('Connected', 'ok'); startTimer();
     callMode = 'video'; if (activeTab !== 'chat') setTab('video'); // both callers always start together in video
@@ -683,7 +761,8 @@
     const old = partnerCall;
     partnerCall = call;
     if (old && old !== call) { try { old.close(); } catch (_) {} }
-    call.on('stream', (s) => { el.remote.srcObject = s; el.wait.hidden = true; el.remote.play().catch(() => {}); });
+    syncSenders(); // if a mic / camera is already on, start sending it
+    call.on('stream', (s) => { el.remote.srcObject = s; el.wait.hidden = true; el.remote.play().catch(() => {}); syncSenders(); });
     call.on('close', () => { if (partnerCall === call) { partnerCall = null; el.remote.srcObject = null; el.wait.hidden = false; } });
     call.on('error', () => setStatus('Video connection problem. Try hanging up and rejoining.', 'error'));
   }
@@ -702,20 +781,13 @@
     const whenOpen = (fn) => (conn.open ? fn() : conn.on('open', fn));
     if (role === 'caller' && slot === 1 && conn.peer === idFor(key, 2)) {
       whenOpen(() => setPartner(conn));
-    } else if (role === 'viewer') {
-      if (viewers.size >= MAX_VIEWERS) { conn.close(); return; }
-      whenOpen(() => {
-        const v = { conn, call: peer.call(conn.peer, stream, { metadata: { slot } }) };
-        viewers.set(conn.peer, v);
-        conn.on('close', () => { try { v.call.close(); } catch (_) {} viewers.delete(conn.peer); });
-      });
     } else {
       conn.close();
     }
   }
 
   function onCall(call) {
-    if (slot === 1 && call.peer === idFor(key, 2)) { call.answer(stream); setPartnerCall(call); }
+    if (slot === 1 && call.peer === idFor(key, 2)) { call.answer(outStream()); setPartnerCall(call); }
     else call.close();
   }
 
@@ -751,6 +823,7 @@
     for (const v of attempts) {
       try { track = (await navigator.mediaDevices.getUserMedia({ video: v })).getVideoTracks()[0]; break; } catch (_) {}
     }
+    if (track && activeTab !== 'video') { stopTrack(track); track = null; flipping = false; return; } // left the video tab meanwhile
     if (track) facing = want;
     else {
       try { track = (await navigator.mediaDevices.getUserMedia({ video: oldId ? { deviceId: { exact: oldId } } : true })).getVideoTracks()[0]; } catch (_) {}
@@ -769,7 +842,7 @@
   let swapped = false;                           // false: remote is the big window and local is the small floating one
   let dragFx = 1, dragFy = 0;                    // floating window position as a fraction of the free space (1,0 = top-right)
   const ratio = { local: 4 / 3, remote: 4 / 3 };  // width / height of each stream, kept in sync with the real video size
-  let remoteOrient = { mode: 'landscape', angle: 0 }, orientTimer = null;
+  let remoteOrient = { mode: 'landscape', angle: 0 }, orientTimer = null, lastOrient = null;
   const FLOAT_GAP = 12;
 
   const streamRatio = (v) => (v.videoWidth && v.videoHeight ? v.videoWidth / v.videoHeight : 0);
@@ -807,11 +880,26 @@
 
   function readOrient() {
     const so = window.screen && screen.orientation;
-    const type = so && so.type ? so.type : (window.matchMedia && matchMedia('(orientation: portrait)').matches ? 'portrait-primary' : 'landscape-primary');
-    const angle = so && typeof so.angle === 'number' ? so.angle : Number(window.orientation) || 0;
-    return { mode: type.indexOf('portrait') === 0 ? 'portrait' : 'landscape', angle: ((angle % 360) + 360) % 360 };
+    const wo = typeof window.orientation === 'number' ? window.orientation : null;
+    let mode;
+    if (so && so.type) mode = so.type.indexOf('portrait') === 0 ? 'portrait' : 'landscape';
+    else if (wo !== null) mode = Math.abs(wo) === 90 ? 'landscape' : 'portrait';
+    else mode = window.innerHeight > window.innerWidth ? 'portrait' : 'landscape';
+    const angle = so && typeof so.angle === 'number' ? so.angle : (wo || 0);
+    return { mode, angle: ((angle % 360) + 360) % 360 };
   }
-  function sendOrient() { const o = readOrient(); sendJSON({ type: 'orient', mode: o.mode, angle: o.angle }); }
+  // Orientation is only shared while this device is in an active Video Call tab with the camera on.
+  const orientActive = () => activeTab === 'video' && liveTrack(camTrack) && !!partnerConn && partnerConn.open;
+  function sendOrient(force) {
+    if (!orientActive()) return;
+    const o = readOrient(), k = o.mode + ':' + o.angle;
+    if (!force && k === lastOrient) return;       // nothing changed
+    lastOrient = k; sendJSON({ type: 'orient', mode: o.mode, angle: o.angle });
+  }
+  function sendOrientOff() { // tell the other side to drop any rotation when this side leaves the video call
+    if (lastOrient === null) return;
+    lastOrient = null; sendJSON({ type: 'orient', off: true });
+  }
 
   function spinRemote(from, to) {
     const d = ((to - from + 540) % 360) - 180;   // shortest turn, -180..180
@@ -824,19 +912,26 @@
   }
 
   function onOrient(d) {
+    if (d.off) { // the other caller left the video call: back to the neutral shape
+      remoteOrient = { mode: 'landscape', angle: 0 }; delete tileR.dataset.orient; el.remote.style.transform = '';
+      ratio.remote = streamRatio(el.remote) || 4 / 3; layoutTiles(true); return;
+    }
     if (d.mode !== 'portrait' && d.mode !== 'landscape') return;
     const angle = ((Number(d.angle) || 0) % 360 + 360) % 360, prev = remoteOrient.angle;
     remoteOrient = { mode: d.mode, angle }; tileR.dataset.orient = d.mode;
     const real = streamRatio(el.remote);        // the real frame size wins as soon as the video reports it
     ratio.remote = real && ((real < 1) === (d.mode === 'portrait')) ? real : (d.mode === 'portrait' ? 9 / 16 : 16 / 9);
-    spinRemote(prev, angle);
+    if (activeTab === 'video') spinRemote(prev, angle);
     layoutTiles(true);
   }
 
   function watchOrientation() {
-    const fire = () => { clearTimeout(orientTimer); orientTimer = setTimeout(sendOrient, 120); };
+    // Different browsers report a turn through different events (and some report the new value late), so listen to all
+    // of them, re-check shortly after, and only send when the value really changed.
+    const fire = () => { clearTimeout(orientTimer); orientTimer = setTimeout(() => { sendOrient(false); orientTimer = setTimeout(() => sendOrient(false), 350); }, 120); };
     if (window.screen && screen.orientation && screen.orientation.addEventListener) screen.orientation.addEventListener('change', fire);
-    else window.addEventListener('orientationchange', fire);
+    window.addEventListener('orientationchange', fire);
+    window.addEventListener('resize', fire);
   }
 
   function initWindows() {
@@ -1666,13 +1761,11 @@
     left = true;
     clearInterval(pollTimer); stopTimer();
     if (screenTrack) { screenTrack.onended = null; screenTrack.stop(); }
-    viewers.forEach((v) => { try { v.conn.close(); v.call.close(); } catch (_) {} });
-    viewers.clear();
     try { partnerCall && partnerCall.close(); partnerConn && partnerConn.close(); } catch (_) {}
     if (peer && !peer.destroyed) peer.destroy();
-    if (stream) stream.getTracks().forEach((t) => t.stop());
-    if (camTrack) camTrack.stop();
-    peer = stream = camTrack = screenTrack = partnerConn = partnerCall = null;
+    stopTrack(micTrack); stopTrack(camTrack);
+    lastOrient = null;
+    peer = micTrack = camTrack = screenTrack = partnerConn = partnerCall = null;
     connecting = false;
   }
 
