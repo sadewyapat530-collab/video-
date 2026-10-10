@@ -54,8 +54,9 @@
   .avatar.big { width: clamp(96px, 28vmin, 170px); height: clamp(96px, 28vmin, 170px); font-size: clamp(36px, 11vmin, 68px); border-color: #fff; }
 
   .tabs { flex: none; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-  .tabs button { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 8px; }
-  .badge { min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; background: #fff; color: #000; font-size: 12px; font-weight: 800; display: inline-grid; place-items: center; }
+  .tabs button { position: relative; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 8px; }
+  .badge { position: absolute; top: 3px; left: calc(50% + 8px); min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: #fff; color: #000; font-size: 11px; font-weight: 800; display: inline-grid; place-items: center; }
+  svg.ic { width: 22px; height: 22px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; pointer-events: none; }
 
   .views { flex: 1; min-height: 0; display: flex; justify-content: center; }
   .views > .panel { width: 100%; height: 100%; }
@@ -63,15 +64,28 @@
   #view-voice { max-width: 760px; }
 
   .stage { position: relative; flex: 1; min-height: 160px; background: #000; }
-  #remote { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #000; }
-  #local { position: absolute; right: 14px; top: 14px; width: 28%; max-width: 220px; aspect-ratio: 16/10; object-fit: cover; background: #000; border: 1px solid rgba(255,255,255,.4); border-radius: 10px; z-index: 2; }
+  /* Two video windows: one big, one small and floating. Tapping the small one swaps them. */
+  .tile { position: absolute; left: 0; top: 0; width: 100%; height: 100%; overflow: hidden; background: #000;
+    transition: left .5s cubic-bezier(.4,0,.2,1), top .5s cubic-bezier(.4,0,.2,1), width .5s cubic-bezier(.4,0,.2,1), height .5s cubic-bezier(.4,0,.2,1), border-radius .5s ease, box-shadow .4s ease; }
+  .stage.no-anim .tile, .tile.dragging { transition: none; }
+  .tile.is-main { z-index: 1; border-radius: 0; }
+  .tile.is-pip { z-index: 3; border-radius: 12px; border: 1px solid rgba(255,255,255,.4); box-shadow: 0 6px 24px rgba(0,0,0,.6); cursor: pointer; touch-action: none; user-select: none; -webkit-user-select: none; }
+  .tile.is-pip:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+  .tile.is-pip.dragging { cursor: grabbing; border-color: #fff; box-shadow: 0 0 0 1px #fff, 0 0 22px rgba(255,255,255,.45); }
+  .tile video { position: absolute; inset: 0; width: 100%; height: 100%; background: #000; }
+  .tile.is-main video { object-fit: contain; }
+  .tile.is-pip video { object-fit: cover; }
+  #remote { transition: transform .6s cubic-bezier(.2,.8,.2,1); will-change: transform; } /* smooth auto-rotate when the sender turns their phone */
   #local.mirror { transform: scaleX(-1); }
+  .tile.is-pip .wait { padding: 4px; }
+  .tile.is-pip .wait .avatar.big { width: 44px; height: 44px; font-size: 20px; }
+  .tile.is-pip .wait > div:not(.avatar) { display: none; }
   .wait { position: absolute; inset: 0; display: grid; place-items: center; align-content: center; gap: 14px; color: var(--muted); text-align: center; padding: 24px; }
   .vtop { position: absolute; left: 0; top: 0; padding: 12px 16px; z-index: 2; display: flex; flex-direction: column; max-width: 60%; text-shadow: 0 1px 6px #000; }
   .vtop strong { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .vtop span { font-size: 13px; color: rgba(255,255,255,.75); }
   .controls { display: flex; flex-wrap: nowrap; gap: 10px; justify-content: center; padding: 14px; border-top: 1px solid var(--line); }
-  .controls button { flex: 0 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .controls button { flex: 0 1 auto; min-width: 56px; display: grid; place-items: center; padding: 12px 20px; }
 
   .voice-body { flex: 1; min-height: 0; display: grid; place-content: center; justify-items: center; gap: 10px; text-align: center; padding: 20px; }
   .voice-body h2 { margin: 6px 0 0; font-size: clamp(22px, 5vw, 30px); font-weight: 800; letter-spacing: -.02em; max-width: 90vw; overflow: hidden; text-overflow: ellipsis; }
@@ -85,14 +99,18 @@
   .msg.me { align-self: flex-end; background: #fff; color: #000; border-color: #fff; }
   .msg.peer { align-self: flex-start; }
   .msg.sys { align-self: center; border: none; padding: 2px 0; color: var(--muted); font-size: 12.5px; }
+  .msg.typing { display: flex; align-items: center; gap: 5px; padding: 12px 14px; }
+  .msg.typing i { width: 7px; height: 7px; border-radius: 50%; background: #fff; opacity: .35; animation: typ 1.2s infinite ease-in-out; }
+  .msg.typing i:nth-child(2) { animation-delay: .18s; }
+  .msg.typing i:nth-child(3) { animation-delay: .36s; }
+  @keyframes typ { 0%, 60%, 100% { transform: translateY(0); opacity: .35; } 30% { transform: translateY(-5px); opacity: 1; } }
+  #chatState.typing { color: #fff; font-style: italic; }
   .chat-form { display: flex; gap: 10px; padding: 12px; border-top: 1px solid var(--line); }
   .chat-form input { flex: 1; min-width: 0; }
   .chat-form button { flex: none; }
 
 
   /* Draggable self-preview */
-  #local { cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; }
-  #local.dragging { cursor: grabbing; border-color: #fff; box-shadow: 0 0 0 1px #fff, 0 0 22px rgba(255,255,255,.45); }
 
   /* Dynamic Island (tab-switch request) */
   .scrim { position: fixed; inset: 0; z-index: 90; pointer-events: none; opacity: 0; transition: opacity .6s ease;
@@ -120,10 +138,68 @@
   .isl-actions button { flex: 1 1 0; min-width: 0; white-space: nowrap; padding: 10px 8px; border-radius: 22px; }
   @media (prefers-reduced-motion: reduce) { .island, .isl-reveal, .isl-inner, .scrim { transition-duration: .01s !important; transition-delay: 0s !important; } .island[data-state="open"], .isl-dot, .voice-body.live .avatar.big { animation: none; } }
 
+
+  /* Chat attachments */
+  .msg .time.blk { float: none; display: block; text-align: right; margin: 4px 0 0; }
+  .attach-btn { width: 46px; height: 46px; padding: 0; border-radius: 50%; font-size: 24px; line-height: 1; display: grid; place-items: center; }
+  .attach-menu { display: grid; grid-template-columns: repeat(auto-fit, minmax(84px, 1fr)); gap: 8px; padding: 12px; border-top: 1px solid var(--line); max-height: 46%; overflow-y: auto; animation: menuIn .28s cubic-bezier(.2,.9,.3,1.2); }
+  @keyframes menuIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+  .att { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px 4px; font-size: 12.5px; font-weight: 500; border-color: var(--line); }
+  .att .ic { width: 46px; height: 46px; border-radius: 50%; border: 1px solid rgba(255,255,255,.4); display: grid; place-items: center; }
+  .att svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .rec-bar { display: flex; flex-wrap: nowrap; align-items: center; gap: 10px; padding: 12px; border-top: 1px solid var(--line); }
+  .rec-dot { flex: none; width: 10px; height: 10px; border-radius: 50%; background: #ff5c5c; animation: dotPulse 1.1s ease-in-out infinite; }
+  .rec-note { flex: 1; min-width: 0; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .rec-bar button { flex: none; }
+
+  .att-img { display: block; width: min(300px, 62vw); max-height: 340px; object-fit: cover; border-radius: 8px; cursor: zoom-in; }
+  .att-video { display: block; width: min(320px, 66vw); max-height: 360px; border-radius: 8px; background: #000; }
+  .att-audio { display: block; width: min(260px, 62vw); height: 40px; }
+  .att-cap { font-size: 13px; margin-bottom: 6px; word-break: break-all; }
+  .att-save { display: inline-block; margin-top: 6px; font-size: 12.5px; color: inherit; opacity: .75; }
+  .prog { position: relative; height: 18px; margin-top: 6px; min-width: min(250px, 64vw); border: 1px solid currentColor; border-radius: 9px; overflow: hidden; }
+  .prog-fill { position: absolute; inset: 0 auto 0 0; width: 0; background: currentColor; opacity: .25; transition: width .15s; }
+  .prog-text { position: relative; display: block; text-align: center; font-size: 11px; line-height: 16px; padding: 0 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .xfer-cancel { display: block; width: 100%; margin-top: 8px; padding: 6px 12px; }
+  .doc { display: flex; align-items: center; gap: 10px; min-width: min(230px, 62vw); }
+  .doc-ico { flex: none; width: 42px; height: 50px; border: 1.5px solid currentColor; border-radius: 6px; display: grid; place-items: center; font-size: 10px; font-weight: 800; }
+  .doc-txt { min-width: 0; display: flex; flex-direction: column; }
+  .doc-txt strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; font-size: 13.5px; }
+  .doc-txt small { opacity: .65; font-size: 12px; }
+  .ci-wrap { min-width: min(230px, 62vw); }
+  .ci-row { display: flex; align-items: center; gap: 10px; }
+  .ci-row .avatar { border-color: currentColor; }
+  .ci-txt { display: flex; flex-direction: column; min-width: 0; }
+  .ci-txt strong { overflow: hidden; text-overflow: ellipsis; }
+  .ci-txt span { opacity: .7; font-size: 13px; word-break: break-word; }
+  .ci-acts { display: flex; flex-wrap: nowrap; gap: 8px; margin-top: 10px; }
+  .ci-btn { flex: 1 1 0; min-width: 0; display: inline-block; text-align: center; font: inherit; font-weight: 600; font-size: 13px; padding: 8px 10px; border-radius: 10px; border: 1px solid rgba(128,128,128,.7); background: #000; color: #fff; text-decoration: none; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  .cap-card { max-width: 560px; }
+  .cap-stage { position: relative; background: #000; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; aspect-ratio: 4 / 3; max-height: 55dvh; width: 100%; display: grid; place-items: center; }
+  .cap-stage video, .cap-stage img { width: 100%; height: 100%; object-fit: contain; }
+  #capVideo.mirror { transform: scaleX(-1); }
+  .cap-row { justify-content: center; }
+  .cap-row button { flex: 1 1 0; min-width: 0; white-space: nowrap; }
+  .lightbox { position: fixed; inset: 0; z-index: 60; background: rgba(0,0,0,.92); display: grid; place-items: center; padding: 12px; cursor: zoom-out; }
+  .lightbox img { max-width: 100%; max-height: 100%; object-fit: contain; }
+  @media (max-height: 520px) { .cap-card h1 { display: none; } .attach-menu { grid-template-columns: repeat(auto-fit, minmax(72px, 1fr)); } }
+
+  /* Send icon button + optional profile photo in the name box */
+  .chat-form #sendBtn { width: 46px; height: 46px; padding: 0; border-radius: 50%; display: grid; place-items: center; }
+  .av-pick { display: flex; align-items: center; gap: 14px; }
+  .av-pick .col { display: grid; gap: 8px; min-width: 0; }
+  .av-pick .col small { color: var(--muted); }
+  .av-btns { display: flex; flex-wrap: nowrap; gap: 8px; }
+  .av-btns button { padding: 8px 12px; white-space: nowrap; }
+  .avatar.med { width: 76px; height: 76px; font-size: 32px; border-color: #fff; background-size: cover; background-position: center; }
+
   /* Username box (shown after joining) */
-  .modal { position: fixed; inset: 0; z-index: 50; background: rgba(0,0,0,.82); display: grid; place-items: center; padding: 20px; overflow-y: auto; }
+  .modal { position: fixed; inset: 0; z-index: 50; background: rgba(0,0,0,.82); display: flex; padding: 20px; overflow-y: auto; }
+  .modal > * { margin: auto; }
+  input { color-scheme: dark; }
   .modal .card { background: #000; }
-  .row { display: flex; gap: 10px; justify-content: flex-end; }
+  .row { display: flex; flex-wrap: nowrap; gap: 10px; justify-content: flex-end; }
 
   /* Tablets and phones */
   @media (max-width: 900px) { .call { gap: 10px; } .stage { min-height: 200px; } }
@@ -134,8 +210,7 @@
     .topbar { border-top: 0; }
     .tabs { padding: 0 10px; }
     .controls { gap: 8px; padding: 10px; }
-    .controls button { flex: 1 1 0; padding: 10px 4px; font-size: 13px; }
-    #local { width: 34%; top: 10px; right: 10px; }
+    .controls button { flex: 1 1 0; min-width: 0; padding: 12px 4px; }
     .card { padding: 24px; }
     .msg { max-width: 88%; }
   }
@@ -181,26 +256,28 @@
   </header>
 
   <nav class="tabs" role="tablist" aria-label="Call views">
-    <button type="button" role="tab" data-tab="video" aria-selected="true" aria-pressed="true">Video</button>
-    <button type="button" role="tab" data-tab="voice" aria-selected="false" aria-pressed="false">Voice</button>
-    <button type="button" role="tab" data-tab="chat" aria-selected="false" aria-pressed="false">Chat <span class="badge" id="badge" hidden>0</span></button>
+    <button type="button" role="tab" data-tab="chat" aria-selected="true" aria-pressed="true" aria-label="Chat" title="Chat"><span class="badge" id="badge" hidden>0</span></button>
+    <button type="button" role="tab" data-tab="voice" aria-selected="false" aria-pressed="false" aria-label="Voice call" title="Voice call"></button>
+    <button type="button" role="tab" data-tab="video" aria-selected="false" aria-pressed="false" aria-label="Video call" title="Video call"></button>
   </nav>
 
   <main class="views">
     <!-- Video call -->
-    <section class="panel" id="view-video" role="tabpanel">
-      <div class="stage">
-        <video id="remote" autoplay playsinline></video>
-        <video id="local" autoplay playsinline muted></video>
-        <div class="wait" id="wait"><div class="avatar big js-peeravatar">?</div><div>Waiting for the other caller to join this room…</div></div>
+    <section class="panel" id="view-video" role="tabpanel" hidden>
+      <div class="stage" id="stage">
+        <div class="tile is-main" id="tileRemote">
+          <video id="remote" autoplay playsinline></video>
+          <div class="wait" id="wait"><div class="avatar big js-peeravatar">?</div><div>Waiting for the other caller to join this room…</div></div>
+        </div>
+        <div class="tile is-pip" id="tileLocal"><video id="local" autoplay playsinline muted></video></div>
         <div class="vtop"><strong class="js-peername">Other caller</strong><span class="js-timer">Waiting…</span></div>
       </div>
       <div class="controls">
-        <button class="js-mute" type="button" aria-pressed="false">Mute</button>
-        <button id="camBtn" type="button" aria-pressed="false">Cam Off</button>
-        <button id="flipBtn" type="button" title="Switch between front and back camera">Back Cam</button>
-        <button id="shareBtn" type="button" aria-pressed="false">Share</button>
-        <button class="danger js-hang" type="button">Hang Up</button>
+        <button class="js-mute" type="button" aria-pressed="false" aria-label="Mute"></button>
+        <button id="camBtn" type="button" aria-pressed="false" aria-label="Turn camera off"></button>
+        <button id="flipBtn" type="button" aria-label="Switch camera"></button>
+        <button id="shareBtn" type="button" aria-pressed="false" aria-label="Share screen"></button>
+        <button class="danger js-hang" type="button" aria-label="Hang up" title="Hang up"></button>
       </div>
     </section>
 
@@ -213,30 +290,81 @@
         <p class="js-timer">Waiting…</p>
       </div>
       <div class="controls">
-        <button class="js-mute" type="button" aria-pressed="false">Mute</button>
-        <button id="spkBtn" type="button" aria-pressed="false">Speaker</button>
-        <button class="danger js-hang" type="button">Hang Up</button>
+        <button class="js-mute" type="button" aria-pressed="false" aria-label="Mute"></button>
+        <button id="spkBtn" type="button" aria-pressed="false" aria-label="Speaker"></button>
+        <button class="danger js-hang" type="button" aria-label="Hang up" title="Hang up"></button>
       </div>
     </section>
 
     <!-- Chat -->
-    <section class="panel" id="view-chat" role="tabpanel" hidden>
+    <section class="panel" id="view-chat" role="tabpanel">
       <div class="bar">
         <div class="who"><div class="avatar js-peeravatar">?</div><div class="txt"><strong class="js-peername">Other caller</strong><small id="chatState">waiting…</small></div></div>
       </div>
       <div class="chat-log" id="chatLog" role="log" aria-live="polite"></div>
+      <div class="attach-menu" id="attachMenu" role="menu" hidden>
+        <button type="button" class="att" role="menuitem" data-att="photo"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-8 9"/></svg></span><span>Photo</span></button>
+        <button type="button" class="att" role="menuitem" data-att="video"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6" width="13" height="12" rx="2"/><path d="M16 10l5-3v10l-5-3z"/></svg></span><span>Video</span></button>
+        <button type="button" class="att" role="menuitem" data-att="voice"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></span><span>Voice</span></button>
+        <button type="button" class="att" role="menuitem" data-att="song"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V6l11-2v12"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/></svg></span><span>Song</span></button>
+        <button type="button" class="att" role="menuitem" data-att="contact"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg></span><span>Contact</span></button>
+        <button type="button" class="att" role="menuitem" data-att="location"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s7-6.2 7-11a7 7 0 0 0-14 0c0 4.8 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></svg></span><span>Location</span></button>
+        <button type="button" class="att" role="menuitem" data-att="doc"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4M9 12h6M9 16h6"/></svg></span><span>Document</span></button>
+        <button type="button" class="att" role="menuitem" data-att="event"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg></span><span>Event</span></button>
+        <button type="button" class="att" role="menuitem" data-att="camera"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v12H4z"/><circle cx="12" cy="14" r="3.5"/></svg></span><span>Camera</span></button>
+      </div>
+      <div class="rec-bar" id="recBar" hidden>
+        <span class="rec-dot"></span><strong id="recTime">0:00</strong><span class="rec-note">Recording voice message…</span>
+        <button type="button" id="recCancel">Cancel</button><button type="button" class="primary" id="recSend">Send</button>
+      </div>
       <form class="chat-form" id="chatForm">
+        <button type="button" class="attach-btn" id="attachBtn" aria-label="Attach" aria-expanded="false" disabled>+</button>
         <input id="chatInput" placeholder="Type a message" aria-label="Message" autocomplete="off" disabled>
-        <button class="primary" id="sendBtn" type="submit" disabled>Send</button>
+        <button class="primary" id="sendBtn" type="submit" aria-label="Send" title="Send" disabled></button>
       </form>
     </section>
   </main>
+
+  <input type="file" id="fPhoto" accept="image/*" multiple hidden>
+  <input type="file" id="fVideo" accept="video/*" multiple hidden>
+  <input type="file" id="fSong" accept="audio/*" multiple hidden>
+  <input type="file" id="fDoc" multiple hidden>
+
+  <div class="modal" id="sheet" hidden>
+    <form class="card" id="sheetForm">
+      <h1 id="sheetTitle"></h1>
+      <div id="sheetBody" style="display:grid;gap:14px"></div>
+      <p class="err" id="sheetErr" role="alert"></p>
+      <div class="row"><button type="button" id="sheetCancel">Cancel</button><button class="primary" type="submit" id="sheetOk">Send</button></div>
+    </form>
+  </div>
+
+  <div class="modal" id="capModal" hidden>
+    <div class="card cap-card">
+      <h1>Camera</h1>
+      <div class="cap-stage"><video id="capVideo" autoplay playsinline muted></video><img id="capImg" alt="Captured photo" hidden></div>
+      <p class="err" id="capErr" role="alert"></p>
+      <div class="row cap-row" id="capLive"><button type="button" id="capFlip">Back Cam</button><button type="button" class="primary" id="capShot">Capture</button><button type="button" id="capClose">Close</button></div>
+      <div class="row cap-row" id="capReview" hidden><button type="button" id="capRetake">Retake</button><button type="button" class="primary" id="capSend">Send</button></div>
+    </div>
+  </div>
+
+  <div class="lightbox" id="lightbox" hidden><img id="lbImg" alt=""></div>
 
   <!-- Username box: appears after joining the room -->
   <div class="modal" id="nameModal" hidden>
     <form class="card" id="nameForm">
       <h1>Your name</h1>
       <p>This name is shown to the other caller in video, voice and chat.</p>
+      <div class="av-pick">
+        <div class="avatar med" id="avPreview">?</div>
+        <div class="col">
+          <small>Profile photo (optional)</small>
+          <div class="av-btns"><button type="button" id="avChoose">Add photo</button><button type="button" id="avRemove" hidden>Remove</button></div>
+          <input type="file" id="avFile" accept="image/*" hidden>
+        </div>
+      </div>
+      <p class="err" id="avErr" role="alert"></p>
       <div>
         <label for="nameInput">Name</label>
         <input id="nameInput" autocomplete="off" spellcheck="false" placeholder="Enter your name" maxlength="24">
@@ -279,7 +407,8 @@
   };
   const all = (sel) => [...document.querySelectorAll(sel)];
   const tabs = all('.tabs button'), views = { video: $('view-video'), voice: $('view-voice'), chat: $('view-chat') };
-  let myName = '', peerName = '', activeTab = 'video', callMode = 'video', unread = 0, timerId = null, callStart = 0, facing = 'user', flipping = false;
+  let chatOn = false, typingEl = null, typingHide = null, typingSent = 0, typingStop = null;
+  let myName = '', peerName = '', activeTab = 'chat', callMode = 'video', unread = 0, timerId = null, callStart = 0, facing = 'user', flipping = false;
 
   let peer, key, slot, stream, camTrack, screenTrack, partnerConn, partnerCall, pollTimer, connecting, left;
   const viewers = new Map(); // viewer peer id -> { conn, call }
@@ -303,21 +432,58 @@
     d.className = 'msg ' + who;
     d.appendChild(document.createTextNode(text));
     if (who !== 'sys') { const t = document.createElement('span'); t.className = 'time'; t.textContent = hhmm(ts); d.appendChild(t); }
-    el.log.appendChild(d); el.log.scrollTop = el.log.scrollHeight;
+    if (who === 'peer') showTyping(false);
+    if (typingEl && typingEl.parentNode === el.log) el.log.insertBefore(d, typingEl); else el.log.appendChild(d);
+    el.log.scrollTop = el.log.scrollHeight;
     if (who === 'peer' && activeTab !== 'chat') { unread++; el.badge.textContent = unread; el.badge.hidden = false; }
   }
   function setChat(on) {
     el.chatInput.disabled = !on; el.send.disabled = !on;
-    el.chatState.textContent = on ? 'online' : 'waiting…';
+    chatOn = on; if (!on) showTyping(false);
+    ui.attach.disabled = !on; if (!on) closeAttach();
+    if (!typingEl || typingEl.parentNode !== el.log) el.chatState.textContent = on ? 'online' : 'waiting…';
   }
+
+  /* ---------- Icons (every tab and call button uses one) ---------- */
+
+  const ICONS = {
+    chat: '<path d="M4 5h16v11H9l-5 4z"/>',
+    voice: '<path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/>',
+    video: '<rect x="3" y="6" width="13" height="12" rx="2"/><path d="M16 10l5-3v10l-5-3z"/>',
+    mic: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>',
+    micOff: '<path d="M3 3l18 18"/><path d="M9 9v2a3 3 0 0 0 5 2.2M15 9.3V6a3 3 0 0 0-5.6-1.5"/><path d="M5 11a7 7 0 0 0 11 5.7M19 11a7 7 0 0 1-.6 2.8M12 18v3"/>',
+    cam: '<rect x="3" y="6" width="13" height="12" rx="2"/><path d="M16 10l5-3v10l-5-3z"/>',
+    camOff: '<path d="M3 3l18 18"/><path d="M10 6H5a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2v-2"/><path d="M16 10l5-3v10l-2.5-1.5"/>',
+    flip: '<path d="M20 7v4h-4M4 17v-4h4"/><path d="M5.5 10A7 7 0 0 1 19 9M18.5 14A7 7 0 0 1 5 15"/>',
+    share: '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>',
+    shareOff: '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M9.5 7.5l5 5M14.5 7.5l-5 5"/><path d="M8 20h8M12 16v4"/>',
+    speaker: '<path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16 9a4 4 0 0 1 0 6"/>',
+    speakerOff: '<path d="M4 9v6h4l5 4V5L8 9z"/><path d="M17 9l4 6M21 9l-4 6"/>',
+    hang: '<path d="M3 15c5-5 13-5 18 0l-2 3-3-1.5V14c-2-.7-4-.7-6 0v2.5L5 18z"/>',
+    send: '<path d="M3 11l18-8-8 18-2-8z"/>'
+  };
+  function setIcon(btn, name) {
+    const t = document.createElement('span');
+    t.innerHTML = '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true">' + ICONS[name] + '</svg>';
+    const old = btn.querySelector('svg.ic');
+    if (old) old.replaceWith(t.firstChild); else btn.insertBefore(t.firstChild, btn.firstChild);
+  }
+  function setLabel(btn, text) { btn.setAttribute('aria-label', text); btn.title = text; }
 
   /* ---------- Names, tabs, timer ---------- */
 
   const initial = (n) => ((n || '').trim().charAt(0) || '?').toUpperCase();
+  // Optional profile photo: a small square JPEG (data URL) that travels over the same data channel as chat.
+  let myAvatar = '', peerAvatar = '', pendingAvatar = '';
+  const okAvatar = (s) => typeof s === 'string' && s.length < 90000 && /^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(s);
+  function paintAvatar(node, name, img) {
+    if (img) { node.textContent = ''; node.style.backgroundImage = 'url("' + img + '")'; node.style.backgroundSize = 'cover'; node.style.backgroundPosition = 'center'; }
+    else { node.style.backgroundImage = ''; node.textContent = initial(name); }
+  }
   function refreshNames() {
     all('.js-peername').forEach((n) => { n.textContent = peerName || 'Other caller'; });
-    all('.js-peeravatar').forEach((n) => { n.textContent = initial(peerName); });
-    el.meAvatar.textContent = initial(myName);
+    all('.js-peeravatar').forEach((n) => paintAvatar(n, peerName, peerAvatar));
+    paintAvatar(el.meAvatar, myName, myAvatar);
     el.nameBtn.textContent = myName ? 'Name: ' + myName : 'Set name';
   }
   function sendJSON(obj) { try { if (partnerConn && partnerConn.open) partnerConn.send(obj); } catch (_) {} }
@@ -326,6 +492,7 @@
     activeTab = name;
     tabs.forEach((t) => { const on = t.dataset.tab === name; t.setAttribute('aria-selected', String(on)); t.setAttribute('aria-pressed', String(on)); });
     Object.keys(views).forEach((k) => { views[k].hidden = k !== name; });
+    if (name === 'video') layoutTiles(false); // place the two windows before the first paint
     if (name === 'chat') { unread = 0; el.badge.hidden = true; el.log.scrollTop = el.log.scrollHeight; }
   }
 
@@ -340,8 +507,13 @@
     clearInterval(timerId); timerId = null; el.voiceBody.classList.remove('live'); setTimerText(text || 'Waiting…');
   }
 
+  function paintPick() {
+    paintAvatar($('avPreview'), el.nameInput.value || myName, pendingAvatar);
+    $('avRemove').hidden = !pendingAvatar; $('avChoose').textContent = pendingAvatar ? 'Change' : 'Add photo';
+  }
   function openNameBox(first) {
     el.nameInput.value = myName; el.nameCancel.hidden = first || !myName;
+    pendingAvatar = myAvatar; $('avErr').textContent = ''; paintPick();
     el.nameModal.hidden = false; setTimeout(() => el.nameInput.focus(), 30);
   }
 
@@ -387,7 +559,7 @@
       screenTrack = s.getVideoTracks()[0];
       screenTrack.onended = stopShare;
       await swapVideo(screenTrack);
-      el.share.textContent = 'Stop'; el.share.setAttribute('aria-pressed', 'true');
+      syncShare(true);
     } catch (e) {
       screenTrack = null;
       if (e.name !== 'NotAllowedError') setStatus('Could not start screen sharing.', 'error');
@@ -398,7 +570,7 @@
     if (!screenTrack) return;
     const t = screenTrack; screenTrack = null; t.onended = null; t.stop();
     if (camTrack) await swapVideo(camTrack);
-    el.share.textContent = 'Share'; el.share.setAttribute('aria-pressed', 'false');
+    syncShare(false);
   }
 
   function toggleMute() {
@@ -408,17 +580,20 @@
     syncMute(!t.enabled);
   }
   function syncMute(muted) {
-    all('.js-mute').forEach((b) => { b.textContent = muted ? 'Unmute' : 'Mute'; b.setAttribute('aria-pressed', String(muted)); });
+    all('.js-mute').forEach((b) => { setIcon(b, muted ? 'micOff' : 'mic'); setLabel(b, muted ? 'Unmute' : 'Mute'); b.setAttribute('aria-pressed', String(muted)); });
   }
   function toggleCam() {
     if (!camTrack) return;
     camTrack.enabled = !camTrack.enabled; syncCam(camTrack.enabled);
   }
   function syncCam(on) {
-    el.cam.textContent = on ? 'Cam Off' : 'Cam On'; el.cam.setAttribute('aria-pressed', String(!on));
+    setIcon(el.cam, on ? 'cam' : 'camOff'); setLabel(el.cam, on ? 'Turn camera off' : 'Turn camera on'); el.cam.setAttribute('aria-pressed', String(!on));
   }
   function syncSpeaker() {
-    el.spk.textContent = el.remote.muted ? 'Speaker Off' : 'Speaker'; el.spk.setAttribute('aria-pressed', String(el.remote.muted));
+    setIcon(el.spk, el.remote.muted ? 'speakerOff' : 'speaker'); setLabel(el.spk, el.remote.muted ? 'Speaker off' : 'Speaker'); el.spk.setAttribute('aria-pressed', String(el.remote.muted));
+  }
+  function syncShare(on) {
+    setIcon(el.share, on ? 'shareOff' : 'share'); setLabel(el.share, on ? 'Stop sharing' : 'Share screen'); el.share.setAttribute('aria-pressed', String(on));
   }
 
   /* ---------- Signaling and connections ---------- */
@@ -462,14 +637,14 @@
     el.cam.disabled = !camTrack; syncMute(false); syncCam(true); syncFlip(); checkCams(); callMode = 'video'; clearSwitch();
     el.lobby.hidden = true; el.call.hidden = false;
     setStatus(slot === 1 ? 'Waiting for the other caller…' : 'Looking for the other caller…');
-    setTab('video'); refreshNames(); openNameBox(true); // username box appears after joining the room
+    setTab('chat'); refreshNames(); openNameBox(true); // the app opens on Chat; the name box appears after joining the room
     if (slot === 2) { poll(); pollTimer = setInterval(poll, 3000); } // caller 2 always dials caller 1
   }
 
   function poll() {
     if (left || connecting || (partnerConn && partnerConn.open)) return;
     connecting = true;
-    const conn = peer.connect(idFor(key, 1), { serialization: 'json', reliable: true, metadata: { role: 'caller' } });
+    const conn = peer.connect(idFor(key, 1), { serialization: 'binary', reliable: true, metadata: { role: 'caller' } });
     const t = setTimeout(() => { if (!conn.open) { connecting = false; try { conn.close(); } catch (_) {} } }, 5000);
     conn.on('open', () => {
       clearTimeout(t); connecting = false;
@@ -487,11 +662,18 @@
       if (!d) return;
       if (d.type === 'chat' && typeof d.text === 'string') addMsg(d.text, 'peer', d.ts);
       else if (d.type === 'name' && typeof d.name === 'string') { peerName = d.name.slice(0, 24); refreshNames(); }
+      else if (d.type === 'typing') showTyping(!!d.on);
+      else if (typeof d.type === 'string' && d.type.indexOf('file-') === 0) onFileMsg(d);
+      else if (d.type === 'rich') onRich(d);
+      else if (d.type === 'orient') onOrient(d);
+      else if (d.type === 'avatar') { peerAvatar = okAvatar(d.data) ? d.data : ''; refreshNames(); }
       else if (typeof d.type === 'string' && d.type.indexOf('tab-') === 0) onTabMsg(d);
     });
     conn.on('close', () => { if (partnerConn === conn) partnerLost(); });
     setChat(true);
     if (myName) sendJSON({ type: 'name', name: myName });
+    if (myAvatar) sendJSON({ type: 'avatar', data: myAvatar });
+    sendOrient(); // let the other side know how this device is held
     addMsg('The other caller joined', 'sys');
     setStatus('Connected', 'ok'); startTimer();
     callMode = 'video'; if (activeTab !== 'chat') setTab('video'); // both callers always start together in video
@@ -510,8 +692,8 @@
     partnerConn = null;
     if (partnerCall) { try { partnerCall.close(); } catch (_) {} partnerCall = null; }
     el.remote.srcObject = null; el.wait.hidden = false;
-    setChat(false); stopTimer('Call ended'); clearSwitch();
-    addMsg((peerName || 'The other caller') + ' left', 'sys'); peerName = ''; refreshNames();
+    setChat(false); stopTimer('Call ended'); clearSwitch(); failTransfers();
+    addMsg((peerName || 'The other caller') + ' left', 'sys'); peerName = ''; peerAvatar = ''; refreshNames();
     setStatus(slot === 1 ? 'Waiting for the other caller…' : 'Looking for the other caller…');
   }
 
@@ -539,7 +721,7 @@
 
   /* ---------- Front / back camera ---------- */
 
-  function syncFlip() { el.flip.textContent = facing === 'user' ? 'Back Cam' : 'Front Cam'; }
+  function syncFlip() { setIcon(el.flip, 'flip'); setLabel(el.flip, facing === 'user' ? 'Switch to back camera' : 'Switch to front camera'); }
 
   async function checkCams() {
     try {
@@ -581,37 +763,121 @@
     syncFlip(); flipping = false; checkCams();
   }
 
-  /* ---------- Draggable self-preview ---------- */
+  /* ---------- Video windows: tap-to-swap, drag, and orientation matching ---------- */
 
-  let dragFx = null, dragFy = null;
-  function placePreview() {
-    if (dragFx === null) return;
-    const v = el.local, st = v.parentElement, fw = st.clientWidth - v.offsetWidth, fh = st.clientHeight - v.offsetHeight;
-    if (st.clientWidth === 0) return; // tab hidden
-    v.style.right = 'auto'; v.style.left = Math.max(fw, 0) * dragFx + 'px'; v.style.top = Math.max(fh, 0) * dragFy + 'px';
+  const stageEl = $('stage'), tileR = $('tileRemote'), tileL = $('tileLocal');
+  let swapped = false;                           // false: remote is the big window and local is the small floating one
+  let dragFx = 1, dragFy = 0;                    // floating window position as a fraction of the free space (1,0 = top-right)
+  const ratio = { local: 4 / 3, remote: 4 / 3 };  // width / height of each stream, kept in sync with the real video size
+  let remoteOrient = { mode: 'landscape', angle: 0 }, orientTimer = null;
+  const FLOAT_GAP = 12;
+
+  const streamRatio = (v) => (v.videoWidth && v.videoHeight ? v.videoWidth / v.videoHeight : 0);
+  const setGeo = (n, l, t, w, h2) => { n.style.left = l + 'px'; n.style.top = t + 'px'; n.style.width = w + 'px'; n.style.height = h2 + 'px'; };
+
+  // Puts the big window over the whole stage and the small one at its saved position.
+  // The tiles have CSS transitions on left/top/width/height, so any change here animates smoothly.
+  function layoutTiles(animate) {
+    const W = stageEl.clientWidth, H = stageEl.clientHeight;
+    if (!W || !H) return;                        // video tab is hidden
+    if (animate === false) stageEl.classList.add('no-anim');
+    const big = swapped ? tileL : tileR, small = swapped ? tileR : tileL;
+    const r = swapped ? ratio.remote : ratio.local;          // aspect ratio of the stream shown in the small window
+    const long = Math.min(Math.max(Math.min(W, H) * 0.4, 110), 240);
+    const pw = Math.min(r >= 1 ? long : long * r, W - 2 * FLOAT_GAP), ph = Math.min(r >= 1 ? long / r : long, H - 2 * FLOAT_GAP);
+    setGeo(big, 0, 0, W, H);
+    setGeo(small, FLOAT_GAP + dragFx * Math.max(W - pw - 2 * FLOAT_GAP, 0), FLOAT_GAP + dragFy * Math.max(H - ph - 2 * FLOAT_GAP, 0), pw, ph);
+    big.classList.add('is-main'); big.classList.remove('is-pip', 'dragging');
+    small.classList.add('is-pip'); small.classList.remove('is-main');
+    big.removeAttribute('role'); big.removeAttribute('tabindex'); big.removeAttribute('title'); big.removeAttribute('aria-label');
+    small.setAttribute('role', 'button'); small.tabIndex = 0; small.title = 'Tap to swap · drag to move'; small.setAttribute('aria-label', 'Swap the two video windows');
+    if (animate === false) { void stageEl.offsetWidth; requestAnimationFrame(() => requestAnimationFrame(() => stageEl.classList.remove('no-anim'))); }
   }
-  function resetPreview() { dragFx = dragFy = null; el.local.style.left = el.local.style.top = el.local.style.right = ''; }
-  function initDrag() {
-    const v = el.local; let pid = null, ox = 0, oy = 0;
-    const end = () => { pid = null; v.classList.remove('dragging'); };
-    v.addEventListener('pointerdown', (e) => {
-      if (e.button) return;
-      const r = v.getBoundingClientRect();
-      ox = e.clientX - r.left; oy = e.clientY - r.top; pid = e.pointerId;
-      try { v.setPointerCapture(pid); } catch (_) {}
-      v.classList.add('dragging'); e.preventDefault();
-    });
-    v.addEventListener('pointermove', (e) => {
-      if (pid !== e.pointerId) return;
-      const s = v.parentElement.getBoundingClientRect(), fw = Math.max(s.width - v.offsetWidth, 0), fh = Math.max(s.height - v.offsetHeight, 0);
-      const left = Math.min(Math.max(e.clientX - s.left - ox, 0), fw), top = Math.min(Math.max(e.clientY - s.top - oy, 0), fh);
+
+  function swapWindows() { swapped = !swapped; layoutTiles(true); }
+
+  function resetPreview() {
+    swapped = false; dragFx = 1; dragFy = 0; ratio.local = ratio.remote = 4 / 3;
+    remoteOrient = { mode: 'landscape', angle: 0 }; delete tileR.dataset.orient;
+    el.remote.style.transform = ''; layoutTiles(false);
+  }
+
+  /* Orientation: the sender reports portrait/landscape through the data channel,
+     the receiver re-shapes and rotates the remote video smoothly (no distortion: it is always object-fit: contain/cover). */
+
+  function readOrient() {
+    const so = window.screen && screen.orientation;
+    const type = so && so.type ? so.type : (window.matchMedia && matchMedia('(orientation: portrait)').matches ? 'portrait-primary' : 'landscape-primary');
+    const angle = so && typeof so.angle === 'number' ? so.angle : Number(window.orientation) || 0;
+    return { mode: type.indexOf('portrait') === 0 ? 'portrait' : 'landscape', angle: ((angle % 360) + 360) % 360 };
+  }
+  function sendOrient() { const o = readOrient(); sendJSON({ type: 'orient', mode: o.mode, angle: o.angle }); }
+
+  function spinRemote(from, to) {
+    const d = ((to - from + 540) % 360) - 180;   // shortest turn, -180..180
+    if (!d) return;
+    const v = el.remote;
+    v.style.transition = 'none';
+    v.style.transform = 'rotate(' + d + 'deg) scale(.86)';   // start from the old orientation...
+    void v.offsetWidth;                                       // ...flush that style...
+    v.style.transition = ''; v.style.transform = '';          // ...then CSS animates it back to upright
+  }
+
+  function onOrient(d) {
+    if (d.mode !== 'portrait' && d.mode !== 'landscape') return;
+    const angle = ((Number(d.angle) || 0) % 360 + 360) % 360, prev = remoteOrient.angle;
+    remoteOrient = { mode: d.mode, angle }; tileR.dataset.orient = d.mode;
+    const real = streamRatio(el.remote);        // the real frame size wins as soon as the video reports it
+    ratio.remote = real && ((real < 1) === (d.mode === 'portrait')) ? real : (d.mode === 'portrait' ? 9 / 16 : 16 / 9);
+    spinRemote(prev, angle);
+    layoutTiles(true);
+  }
+
+  function watchOrientation() {
+    const fire = () => { clearTimeout(orientTimer); orientTimer = setTimeout(sendOrient, 120); };
+    if (window.screen && screen.orientation && screen.orientation.addEventListener) screen.orientation.addEventListener('change', fire);
+    else window.addEventListener('orientationchange', fire);
+  }
+
+  function initWindows() {
+    // tap on the small window swaps; dragging it moves it (a 6px dead zone tells them apart)
+    let pid = null, tile = null, ox = 0, oy = 0, sx = 0, sy = 0, moved = false;
+    const down = (e) => {
+      const t = e.currentTarget;
+      if (!t.classList.contains('is-pip') || e.button) return;
+      const r = t.getBoundingClientRect();
+      ox = e.clientX - r.left; oy = e.clientY - r.top; sx = e.clientX; sy = e.clientY; moved = false; pid = e.pointerId; tile = t;
+      try { t.setPointerCapture(pid); } catch (_) {}
+      e.preventDefault();
+    };
+    const move = (e) => {
+      if (pid !== e.pointerId || !tile) return;
+      if (!moved && Math.hypot(e.clientX - sx, e.clientY - sy) < 6) return;
+      if (!moved) { moved = true; tile.classList.add('dragging'); }
+      const s = stageEl.getBoundingClientRect(), fw = Math.max(s.width - tile.offsetWidth - 2 * FLOAT_GAP, 0), fh = Math.max(s.height - tile.offsetHeight - 2 * FLOAT_GAP, 0);
+      const left = Math.min(Math.max(e.clientX - s.left - ox - FLOAT_GAP, 0), fw), top = Math.min(Math.max(e.clientY - s.top - oy - FLOAT_GAP, 0), fh);
       dragFx = fw ? left / fw : 0; dragFy = fh ? top / fh : 0;
-      v.style.right = 'auto'; v.style.left = left + 'px'; v.style.top = top + 'px';
+      tile.style.left = FLOAT_GAP + left + 'px'; tile.style.top = FLOAT_GAP + top + 'px';
+    };
+    const up = (e) => {
+      if (pid !== e.pointerId) return;
+      const t = tile, wasMoved = moved; pid = null; tile = null;
+      if (!t) return;
+      t.classList.remove('dragging');
+      if (!wasMoved && e.type === 'pointerup') swapWindows();
+    };
+    [tileR, tileL].forEach((t) => {
+      t.addEventListener('pointerdown', down); t.addEventListener('pointermove', move);
+      t.addEventListener('pointerup', up); t.addEventListener('pointercancel', up);
+      t.addEventListener('keydown', (e) => { if ((e.key === 'Enter' || e.key === ' ') && t.classList.contains('is-pip')) { e.preventDefault(); swapWindows(); } });
     });
-    ['pointerup', 'pointercancel', 'lostpointercapture'].forEach((n) => v.addEventListener(n, end));
-    if (window.ResizeObserver) new ResizeObserver(placePreview).observe(v.parentElement);
-    window.addEventListener('resize', placePreview);
-    window.addEventListener('orientationchange', () => setTimeout(placePreview, 250));
+    // keep the real stream shapes up to date (front camera, rotation, screen share...)
+    const track = (key, v) => () => { const r = streamRatio(v); if (r && Math.abs(r - ratio[key]) > 0.01) { ratio[key] = r; layoutTiles(true); } };
+    ['loadedmetadata', 'resize'].forEach((ev) => { el.local.addEventListener(ev, track('local', el.local)); el.remote.addEventListener(ev, track('remote', el.remote)); });
+    if (window.ResizeObserver) new ResizeObserver(() => layoutTiles(false)).observe(stageEl);
+    window.addEventListener('resize', () => layoutTiles(false));
+    window.addEventListener('orientationchange', () => setTimeout(() => layoutTiles(false), 250));
+    watchOrientation();
   }
 
   /* ---------- Dynamic Island: ask the other caller before switching Video <-> Voice ---------- */
@@ -701,6 +967,699 @@
     outgoing = incoming = null; hideIsland();
   }
 
+  /* ---------- Typing indicator ---------- */
+
+  function showTyping(on) {
+    clearTimeout(typingHide);
+    if (on) {
+      if (!typingEl) {
+        typingEl = document.createElement('div'); typingEl.className = 'msg peer typing'; typingEl.setAttribute('aria-label', 'typing');
+        typingEl.innerHTML = '<i></i><i></i><i></i>';
+      }
+      if (typingEl.parentNode !== el.log) el.log.appendChild(typingEl);
+      el.chatState.textContent = 'typing…'; el.chatState.classList.add('typing');
+      el.log.scrollTop = el.log.scrollHeight;
+      typingHide = setTimeout(() => showTyping(false), 4000); // sender re-sends every ~2s while typing
+    } else {
+      if (typingEl && typingEl.parentNode) typingEl.parentNode.removeChild(typingEl);
+      el.chatState.classList.remove('typing');
+      el.chatState.textContent = chatOn ? 'online' : 'waiting…';
+    }
+  }
+  function stopTyping() {
+    clearTimeout(typingStop);
+    if (typingSent) { typingSent = 0; sendJSON({ type: 'typing', on: false }); }
+  }
+  function onType() {
+    if (!el.chatInput.value.trim()) { stopTyping(); return; }
+    const now = Date.now();
+    if (now - typingSent > 2000) { typingSent = now; sendJSON({ type: 'typing', on: true }); }
+    clearTimeout(typingStop); typingStop = setTimeout(stopTyping, 2500);
+  }
+
+  /* ---------- Chat attachments: photo, video, voice, song, contact, location, document, event, live camera ---------- */
+
+  // ---- large-file transfer tuning ----
+  const MAX_FILE = 8 * 1024 ** 3;               // hard cap: 8 GB
+  const CHUNK = 64 * 1024;                      // bytes per message (16-64 KB is the sweet spot for RTCDataChannel)
+  const HIGH_WATER = 1024 * 1024;               // stop queueing when the channel already buffers 1 MB...
+  const LOW_WATER = 256 * 1024;                 // ...and resume when it drains below 256 KB (bufferedamountlow)
+  const WINDOW = 8 * 1024 * 1024;               // max bytes in flight that the receiver has not confirmed yet
+  const ACK_EVERY = 1024 * 1024;                // the receiver confirms every 1 MB it has written
+  const INLINE_MAX = 32 * 1024 * 1024;          // small photos/videos/audio are shown in the chat automatically
+  const MEM_FALLBACK_MAX = 2 * 1024 ** 3;       // biggest file a browser WITHOUT the File System Access API will take
+  const hasFS = typeof window.showSaveFilePicker === 'function' && window.isSecureContext && window.self === window.top;
+  const KINDS = ['image', 'video', 'voice', 'audio', 'doc'];
+  const ui = {
+    attach: $('attachBtn'), menu: $('attachMenu'), recBar: $('recBar'), recTime: $('recTime'), recCancel: $('recCancel'), recSend: $('recSend'),
+    fPhoto: $('fPhoto'), fVideo: $('fVideo'), fSong: $('fSong'), fDoc: $('fDoc'),
+    sheet: $('sheet'), sheetForm: $('sheetForm'), sheetTitle: $('sheetTitle'), sheetBody: $('sheetBody'), sheetErr: $('sheetErr'), sheetOk: $('sheetOk'), sheetCancel: $('sheetCancel'),
+    cap: $('capModal'), capVideo: $('capVideo'), capImg: $('capImg'), capErr: $('capErr'), capLive: $('capLive'), capReview: $('capReview'),
+    capFlip: $('capFlip'), capShot: $('capShot'), capClose: $('capClose'), capRetake: $('capRetake'), capSend: $('capSend'),
+    lb: $('lightbox'), lbImg: $('lbImg')
+  };
+  const incomingFiles = new Map(), outgoingFiles = new Map(), objectUrls = [];
+  let rec = null, sheetCb = null, capStream = null, capFacing = 'user', capBlob = null, capUrl = null, capOwn = false;
+
+  const h = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
+  const fmtSize = (b) => (b < 1024 ? b + ' B' : b < 1048576 ? Math.round(b / 1024) + ' KB' : (b / 1048576).toFixed(1) + ' MB');
+  const fmtDur = (s) => Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0');
+  const safeName = (n) => String(n || 'file').replace(/[\\/:*?"<>|\u0000-\u001f]/g, '_').slice(0, 120) || 'file';
+  const sysMsg = (t) => addMsg(t, 'sys');
+  const scrollLog = () => { el.log.scrollTop = el.log.scrollHeight; };
+
+  function effKind(kind, mime) { // only render what the browser can show safely; everything else is a download
+    mime = String(mime || '');
+    if (kind === 'image') return /^image\/(png|jpe?g|gif|webp|bmp|avif)$/i.test(mime) ? 'image' : 'doc';
+    if (kind === 'video') return /^video\//i.test(mime) ? 'video' : 'doc';
+    if (kind === 'voice' || kind === 'audio') return /^audio\//i.test(mime) ? kind : 'doc';
+    return 'doc';
+  }
+
+  function mkBubble(side, ts) {
+    const d = h('div', 'msg ' + side);
+    const body = h('div', 'body'); d.appendChild(body);
+    d.appendChild(h('span', 'time blk', hhmm(typeof ts === 'number' && isFinite(ts) ? ts : Date.now())));
+    if (side === 'peer') showTyping(false);
+    if (typingEl && typingEl.parentNode === el.log) el.log.insertBefore(d, typingEl); else el.log.appendChild(d);
+    scrollLog();
+    if (side === 'peer' && activeTab !== 'chat') { unread++; el.badge.textContent = unread; el.badge.hidden = false; }
+    return body;
+  }
+
+  function makeProg(text) {
+    const p = h('div', 'prog'), f = h('div', 'prog-fill'), t = h('span', 'prog-text', text);
+    p.append(f, t);
+    p.set = (pct, txt) => { f.style.width = pct + '%'; t.textContent = txt; };
+    return p;
+  }
+
+  function addSave(body, url, name) {
+    const a = h('a', 'att-save', 'Save'); a.href = url; a.download = name; body.appendChild(a);
+  }
+
+  function renderFile(body, kind, url, name, size, dur) {
+    if (kind === 'image') {
+      const img = h('img', 'att-img'); img.src = url; img.alt = name;
+      img.addEventListener('load', scrollLog);
+      img.addEventListener('click', () => { ui.lbImg.src = url; ui.lb.hidden = false; });
+      body.appendChild(img); addSave(body, url, name);
+    } else if (kind === 'video') {
+      const v = h('video', 'att-video'); v.src = url; v.controls = true; v.playsInline = true; v.preload = 'metadata';
+      v.addEventListener('loadedmetadata', scrollLog);
+      body.appendChild(v); addSave(body, url, name);
+    } else if (kind === 'voice' || kind === 'audio') {
+      body.appendChild(h('div', 'att-cap', kind === 'voice' ? 'Voice message' + (dur ? ' · ' + fmtDur(dur) : '') : name));
+      const a = h('audio', 'att-audio'); a.src = url; a.controls = true; a.preload = 'metadata'; body.appendChild(a);
+      if (kind === 'audio') addSave(body, url, name);
+    } else {
+      docCard(body, name, size);
+      if (url) addSave(body, url, name);
+    }
+  }
+
+  function docCard(body, name, size) {
+    const row = h('div', 'doc'), tx = h('div', 'doc-txt');
+    const ext = (name.split('.').length > 1 ? name.split('.').pop() : 'file').slice(0, 4).toUpperCase();
+    tx.append(h('strong', '', name), h('small', '', fmtSize(size)));
+    row.append(h('div', 'doc-ico', ext), tx); body.appendChild(row);
+  }
+
+  /* ====================================================================================
+     LARGE FILE TRANSFER  (sender -> receiver, over the PeerJS data channel)
+
+     Sender:   file.stream() -> 64 KB chunks -> conn.send()
+               • pull-based: the next piece is read from disk only after the previous one is sent
+               • backpressure #1: RTCDataChannel.bufferedAmount (HIGH_WATER / LOW_WATER + 'bufferedamountlow')
+               • backpressure #2: receiver credit window (at most WINDOW bytes un-acknowledged)
+     Receiver: chunk -> FileSystemWritableFileStream.write()  (straight to disk, Chrome / Edge desktop)
+               or, where that API is missing, Blob parts merged every 16 MB (browsers keep large Blobs off the JS heap)
+     Either way RAM use stays at roughly WINDOW (8 MB), no matter how big the file is.
+     ==================================================================================== */
+
+  const uiProgress = (prog, label, got, size) => {
+    const pct = size ? Math.min(100, Math.floor((got / size) * 100)) : 100;
+    prog.set(pct, label + '… ' + pct + '% · ' + fmtSize(got) + ' / ' + fmtSize(size));
+  };
+  const cancelBtn = () => { const b = h('button', 'ci-btn xfer-cancel', 'Cancel'); b.type = 'button'; return b; };
+
+  async function toU8(x) { // PeerJS may hand back an ArrayBuffer, a typed array or a Blob
+    if (x instanceof ArrayBuffer) return new Uint8Array(x);
+    if (ArrayBuffer.isView(x)) return new Uint8Array(x.buffer, x.byteOffset, x.byteLength);
+    if (x instanceof Blob) return new Uint8Array(await x.arrayBuffer());
+    throw new Error('bad chunk');
+  }
+
+  // A ReadableStream reader over the file (falls back to slicing on very old browsers).
+  function fileReader(blob) {
+    if (blob.stream) return blob.stream().getReader();
+    let off = 0; const STEP = 1024 * 1024;
+    return { read: async () => (off >= blob.size ? { done: true } : { done: false, value: new Uint8Array(await blob.slice(off, (off += STEP)).arrayBuffer()) }), cancel: async () => {} };
+  }
+
+  // ---- sender: backpressure #1 (data channel send buffer) ----
+  async function waitDrain(conn) {
+    const dc = conn.dataChannel || conn._dc;
+    if (!dc) { while ((conn.bufferSize || 0) > 16) await sleep(10); return; }
+    dc.bufferedAmountLowThreshold = LOW_WATER;
+    while (dc.readyState === 'open' && (dc.bufferedAmount > HIGH_WATER || (conn.bufferSize || 0) > 16)) {
+      await new Promise((res) => {
+        const done = () => { dc.removeEventListener('bufferedamountlow', done); clearTimeout(tm); res(); };
+        const tm = setTimeout(done, 200);                       // safety net if the event is missed
+        dc.addEventListener('bufferedamountlow', done);
+      });
+    }
+  }
+
+  // ---- sender: backpressure #2 (the receiver's disk may be slower than the network) ----
+  async function waitWindow(t) {
+    while (!t.aborted && t.sent - t.acked >= WINDOW) {
+      await new Promise((res) => { t.wake = res; setTimeout(res, 1000); });
+      if (Date.now() - t.ackAt > 120000) throw new Error('receiver stalled');
+    }
+  }
+
+  async function streamOut(t) {
+    const reader = fileReader(t.blob), conn = t.conn;
+    let lastUi = 0; t.seq = 0;
+    try {
+      for (;;) {
+        const { done, value } = await reader.read();            // pulls the next piece from disk
+        if (done || t.aborted) break;
+        for (let o = 0; o < value.length; o += CHUNK) {
+          if (t.aborted || !conn.open || partnerConn !== conn) throw new Error('lost');
+          await waitDrain(conn);
+          await waitWindow(t);
+          if (t.aborted) break;
+          const piece = value.slice(o, o + CHUNK);               // exact-size copy so only these bytes are sent
+          conn.send({ type: 'file-chunk', id: t.id, seq: t.seq++, buf: piece.buffer });
+          t.sent += piece.length;
+          const now = performance.now();
+          if (now - lastUi > 120) { lastUi = now; uiProgress(t.prog, 'Sending', t.sent, t.size); }
+        }
+      }
+    } finally { Promise.resolve(reader.cancel()).catch(() => {}); }
+  }
+
+  function abortOut(t, text) {
+    t.aborted = true; t.reason = text;
+    try { t.conn.send({ type: 'file-abort', id: t.id }); } catch (_) {}
+    if (t.accept) t.accept(false);
+    if (t.done) t.done();
+    if (t.wake) t.wake();
+  }
+
+  async function sendFile(blob, kind, name, extra) {
+    const conn = partnerConn;
+    if (!conn || !conn.open) { sysMsg('Not connected.'); return; }
+    name = safeName(name);
+    if (blob.size > MAX_FILE) { sysMsg(name + ' is too large (max ' + fmtSize(MAX_FILE) + ').'); return; }
+    const mime = blob.type || 'application/octet-stream', k = effKind(kind, mime), dur = (extra && extra.dur) || 0;
+    const inline = k !== 'doc' && blob.size <= INLINE_MAX;
+    const id = newId(), ts = Date.now();
+    const t = { id, conn, blob, size: blob.size, sent: 0, acked: 0, ackAt: Date.now(), aborted: false, reason: '', wake: null, accept: null, done: null, seq: 0 };
+    outgoingFiles.set(id, t);
+
+    const body = mkBubble('me', ts);
+    if (inline) { const url = URL.createObjectURL(blob); objectUrls.push(url); renderFile(body, k, url, name, blob.size, dur); }
+    else docCard(body, name, blob.size);                         // big files: no preview, just a card
+    t.prog = makeProg('Waiting for ' + who() + '…'); body.appendChild(t.prog);
+    t.cancel = cancelBtn(); body.appendChild(t.cancel);
+    t.cancel.addEventListener('click', () => abortOut(t, 'Cancelled'));
+    const fin = (text) => { t.cancel.remove(); if (text) t.prog.set(0, text); else t.prog.remove(); outgoingFiles.delete(id); };
+
+    try {
+      conn.send({ type: 'file-offer', id, kind: k, name, mime, size: blob.size, dur, ts });
+      // small media is accepted automatically, big files wait until the receiver chooses where to save them
+      const ok = await new Promise((res) => { t.accept = res; });
+      if (!ok) { fin(t.reason || 'Declined'); return; }
+      t.prog.set(0, 'Sending… 0%');
+      await streamOut(t);
+      if (t.aborted) { fin(t.reason || 'Cancelled'); return; }
+      conn.send({ type: 'file-end', id, chunks: t.seq });
+      t.prog.set(100, 'Finishing…');
+      await Promise.race([new Promise((res) => { t.done = res; }), sleep(60000)]);   // receiver confirms with file-done
+      fin(t.aborted ? (t.reason || 'Cancelled') : '');
+    } catch (_) {
+      try { conn.send({ type: 'file-abort', id }); } catch (__) {}
+      fin('Not sent');
+    }
+  }
+
+  // ---- receiver ----
+
+  function receiveOffer(d) {
+    const size = Number(d.size);
+    if (!KINDS.includes(d.kind) || !(size >= 0 && size <= MAX_FILE) || incomingFiles.has(d.id) || incomingFiles.size >= 6) { sendJSON({ type: 'file-reject', id: d.id }); return; }
+    const name = safeName(d.name), mime = String(d.mime || '').slice(0, 100), kind = effKind(d.kind, mime);
+    const inline = kind !== 'doc' && size <= INLINE_MAX;
+    const body = mkBubble('peer', d.ts);
+    const f = { id: d.id, kind, name, mime, size, dur: Number(d.dur) || 0, inline, body, mode: 'wait', got: 0, acked: 0, nextSeq: 0, total: -1,
+      pending: new Map(), queue: Promise.resolve(), blob: null, parts: [], partBytes: 0, writer: null, prog: null, cancel: null, lastUi: 0, finished: false, finishing: false };
+    incomingFiles.set(f.id, f);
+
+    if (inline) { // small media: receive into memory-backed Blob storage and show it in the chat
+      body.appendChild(h('div', 'att-cap', kind === 'image' ? 'Photo' : kind === 'video' ? 'Video' : kind === 'voice' ? 'Voice message' : name));
+      startReceive(f, null); return;
+    }
+    // documents and big files: ask first. showSaveFilePicker needs a tap, so the receiver must press the button.
+    docCard(body, name, size);
+    const tooBig = !hasFS && size > MEM_FALLBACK_MAX;
+    const note = h('div', 'att-cap', hasFS ? 'Saved straight to your disk, so even very large files are safe.'
+      : tooBig ? 'Too large for this browser. Open this page in Chrome or Edge on a computer to receive it.'
+      : 'This browser keeps the file in temporary storage and then lets you save it.');
+    const acts = h('div', 'ci-acts'), yes = h('button', 'ci-btn', hasFS ? 'Save to disk' : 'Accept'), no = h('button', 'ci-btn', 'Decline');
+    yes.type = no.type = 'button'; yes.hidden = tooBig;
+    acts.append(yes, no); body.append(note, acts);
+    yes.addEventListener('click', async () => {
+      let writer = null;
+      if (hasFS) {
+        try { writer = await (await window.showSaveFilePicker({ suggestedName: name })).createWritable(); }
+        catch (e) { if (e && e.name === 'AbortError') return; writer = null; }   // closed the picker: stay on the offer
+        if (!writer && size > MEM_FALLBACK_MAX) { note.textContent = 'Could not open the file for writing.'; return; }
+      }
+      acts.remove(); note.remove(); startReceive(f, writer);
+    });
+    no.addEventListener('click', () => {
+      acts.remove(); note.remove(); incomingFiles.delete(f.id); sendJSON({ type: 'file-reject', id: f.id });
+      body.appendChild(h('div', 'att-cap', 'Declined'));
+    });
+  }
+
+  function startReceive(f, writer) {
+    f.writer = writer; f.mode = writer ? 'disk' : 'mem';
+    f.prog = makeProg('Receiving… 0%'); f.cancel = cancelBtn();
+    f.body.append(f.prog, f.cancel);
+    f.cancel.addEventListener('click', () => { sendJSON({ type: 'file-abort', id: f.id }); failIncoming(f, 'Cancelled', false); });
+    sendJSON({ type: 'file-accept', id: f.id });
+  }
+
+  async function writeChunk(f, raw) { // runs strictly one after another through f.queue
+    if (f.finished) return;
+    const u8 = await toU8(raw);
+    if (!u8.length || u8.length > CHUNK * 2) throw new Error('bad chunk');
+    f.got += u8.length;
+    if (f.got > f.size) throw new Error('too much data');
+    if (f.mode === 'disk') await f.writer.write(u8);               // goes to the file on disk, nothing is kept in RAM
+    else {
+      f.parts.push(u8); f.partBytes += u8.length;
+      if (f.partBytes >= 16 * 1024 * 1024) { f.blob = new Blob(f.blob ? [f.blob, ...f.parts] : f.parts); f.parts = []; f.partBytes = 0; }
+    }
+    if (f.got - f.acked >= ACK_EVERY) { f.acked = f.got; sendJSON({ type: 'file-ack', id: f.id, got: f.got }); }   // gives the sender more credit
+    const now = performance.now();
+    if (now - f.lastUi > 120) { f.lastUi = now; uiProgress(f.prog, 'Receiving', f.got, f.size); }
+  }
+
+  async function finishIn(f) {
+    if (f.finished) return;
+    if (f.got !== f.size) throw new Error('size mismatch');
+    f.finished = true; incomingFiles.delete(f.id);
+    if (f.mode === 'disk') {
+      await f.writer.close();
+      f.cancel.remove(); f.prog.set(100, 'Saved to disk · ' + fmtSize(f.size));
+    } else {
+      const blob = new Blob(f.blob ? [f.blob, ...f.parts] : f.parts, { type: f.kind === 'doc' ? 'application/octet-stream' : f.mime });
+      f.parts = []; f.blob = null;
+      const url = URL.createObjectURL(blob); objectUrls.push(url);
+      f.body.textContent = '';
+      renderFile(f.body, f.inline ? f.kind : 'doc', url, f.name, blob.size, f.dur);
+    }
+    sendJSON({ type: 'file-done', id: f.id });
+    scrollLog();
+  }
+
+  function failIncoming(f, text, notify) {
+    if (f.finished) return;
+    f.finished = true; incomingFiles.delete(f.id);
+    if (notify) sendJSON({ type: 'file-abort', id: f.id });
+    try { if (f.writer) Promise.resolve(f.writer.abort()).catch(() => {}); } catch (_) {}
+    f.parts = []; f.blob = null; f.pending.clear();
+    if (f.cancel) f.cancel.remove();
+    if (f.prog) f.prog.set(0, text);
+  }
+
+  // Chunks carry a sequence number because PeerJS can deliver big messages slightly out of order.
+  function pumpIn(f) {
+    while (f.pending.has(f.nextSeq)) {
+      const raw = f.pending.get(f.nextSeq); f.pending.delete(f.nextSeq); f.nextSeq++;
+      f.queue = f.queue.then(() => writeChunk(f, raw)).catch(() => failIncoming(f, 'Transfer failed', true));
+    }
+    if (f.total >= 0 && f.nextSeq >= f.total && !f.finishing) {
+      f.finishing = true;
+      f.queue = f.queue.then(() => finishIn(f)).catch(() => failIncoming(f, 'Transfer failed', true));
+    }
+  }
+
+  function onFileMsg(d) {
+    if (typeof d.id !== 'string' || d.id.length > 40) return;
+    const t = outgoingFiles.get(d.id);
+    if (t) { // ---- replies about a file WE are sending ----
+      if (d.type === 'file-accept') { t.ackAt = Date.now(); if (t.accept) { t.accept(true); t.accept = null; } }
+      else if (d.type === 'file-reject') { t.reason = 'Declined'; if (t.accept) t.accept(false); }
+      else if (d.type === 'file-ack') { const g = Number(d.got); if (g > t.acked) { t.acked = g; t.ackAt = Date.now(); } if (t.wake) t.wake(); }
+      else if (d.type === 'file-done') { if (t.done) t.done(); }
+      else if (d.type === 'file-abort') { t.aborted = true; t.reason = 'Cancelled by ' + who(); if (t.accept) t.accept(false); if (t.done) t.done(); if (t.wake) t.wake(); }
+      return;
+    }
+    if (d.type === 'file-offer') { receiveOffer(d); return; }   // ---- a file is being sent TO us ----
+    const f = incomingFiles.get(d.id);
+    if (!f) return;
+    if (d.type === 'file-chunk') {
+      if (f.mode === 'wait' || f.finished || !Number.isInteger(d.seq) || d.seq < f.nextSeq) return;
+      f.pending.set(d.seq, d.buf);
+      if (f.pending.size > 256) { failIncoming(f, 'Transfer failed', true); return; }
+      pumpIn(f);
+    } else if (d.type === 'file-end') { f.total = Number(d.chunks); pumpIn(f); }
+    else if (d.type === 'file-abort') failIncoming(f, 'Cancelled by ' + who(), false);
+  }
+
+  function failTransfers() {
+    incomingFiles.forEach((f) => failIncoming(f, 'Interrupted', false));
+    outgoingFiles.forEach((t) => { t.aborted = true; t.reason = 'Interrupted'; if (t.accept) t.accept(false); if (t.done) t.done(); if (t.wake) t.wake(); });
+    stopVoice(false); closeAttach();
+  }
+
+  /* --- rich messages: contact, location, event --- */
+
+  function cleanRich(kind, d) {
+    d = d || {};
+    if (kind === 'contact') {
+      const name = String(d.name || '').trim().slice(0, 60), phone = String(d.phone || '').replace(/[^0-9+\-() ]/g, '').trim().slice(0, 30);
+      return name && phone.replace(/\D/g, '').length >= 5 ? { name, phone } : null;
+    }
+    if (kind === 'location') {
+      const lat = Number(d.lat), lng = Number(d.lng), acc = Number(d.acc);
+      return Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180 ? { lat, lng, acc: Number.isFinite(acc) ? Math.round(acc) : 0 } : null;
+    }
+    if (kind === 'event') {
+      const title = String(d.title || '').trim().slice(0, 80), date = String(d.date || ''), time = String(d.time || '');
+      if (!title || !/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{2}:\d{2}$/.test(time) || isNaN(new Date(date + 'T' + time + ':00'))) return null;
+      return { title, date, time, place: String(d.place || '').trim().slice(0, 100), note: String(d.note || '').trim().slice(0, 200) };
+    }
+    return null;
+  }
+
+  function downloadText(name, text, mime) {
+    const url = URL.createObjectURL(new Blob([text], { type: mime }));
+    const a = h('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+  }
+  const icsEsc = (s) => String(s || '').replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
+  function icsFor(ev) {
+    const pad = (n) => String(n).padStart(2, '0');
+    const f = (x) => x.getFullYear() + pad(x.getMonth() + 1) + pad(x.getDate()) + 'T' + pad(x.getHours()) + pad(x.getMinutes()) + '00';
+    const start = new Date(ev.date + 'T' + ev.time + ':00'), end = new Date(start.getTime() + 3600000);
+    const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d+Z$/, 'Z');
+    return ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Room Call//EN', 'BEGIN:VEVENT', 'UID:' + newId() + '@roomcall', 'DTSTAMP:' + stamp,
+      'DTSTART:' + f(start), 'DTEND:' + f(end), 'SUMMARY:' + icsEsc(ev.title), ev.place ? 'LOCATION:' + icsEsc(ev.place) : '',
+      ev.note ? 'DESCRIPTION:' + icsEsc(ev.note) : '', 'END:VEVENT', 'END:VCALENDAR'].filter(Boolean).join('\r\n');
+  }
+
+  function renderRich(side, kind, data, ts) {
+    const body = mkBubble(side, ts), wrap = h('div', 'ci-wrap'); body.appendChild(wrap);
+    if (kind === 'contact') {
+      const row = h('div', 'ci-row'), tx = h('div', 'ci-txt');
+      tx.append(h('strong', '', data.name), h('span', '', data.phone));
+      row.append(h('div', 'avatar', initial(data.name)), tx);
+      const acts = h('div', 'ci-acts'), call = h('a', 'ci-btn', 'Call'), save = h('button', 'ci-btn', 'Save');
+      call.href = 'tel:' + data.phone.replace(/[^0-9+]/g, ''); save.type = 'button';
+      save.addEventListener('click', () => {
+        const e = (s) => s.replace(/([,;\\])/g, '\\$1');
+        downloadText(safeName(data.name) + '.vcf', 'BEGIN:VCARD\r\nVERSION:3.0\r\nFN:' + e(data.name) + '\r\nN:;' + e(data.name) + ';;;\r\nTEL:' + data.phone + '\r\nEND:VCARD', 'text/vcard');
+      });
+      acts.append(call, save); wrap.append(row, acts);
+    } else if (kind === 'location') {
+      const tx = h('div', 'ci-txt');
+      tx.append(h('strong', '', 'Location'), h('span', '', data.lat.toFixed(5) + ', ' + data.lng.toFixed(5) + (data.acc ? ' (±' + data.acc + ' m)' : '')));
+      const acts = h('div', 'ci-acts'), a = h('a', 'ci-btn', 'Open in Maps');
+      a.href = 'https://www.google.com/maps?q=' + data.lat + ',' + data.lng; a.target = '_blank'; a.rel = 'noopener noreferrer';
+      acts.appendChild(a); wrap.append(tx, acts);
+    } else if (kind === 'event') {
+      const when = new Date(data.date + 'T' + data.time + ':00'), tx = h('div', 'ci-txt');
+      let whenText = data.date + ' ' + data.time;
+      try { whenText = when.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }); } catch (_) {}
+      tx.append(h('strong', '', data.title), h('span', '', whenText));
+      if (data.place) tx.appendChild(h('span', '', data.place));
+      if (data.note) tx.appendChild(h('span', '', data.note));
+      const acts = h('div', 'ci-acts'), b = h('button', 'ci-btn', 'Add to calendar'); b.type = 'button';
+      b.addEventListener('click', () => downloadText(safeName(data.title) + '.ics', icsFor(data), 'text/calendar'));
+      acts.appendChild(b); wrap.append(tx, acts);
+    }
+    scrollLog();
+  }
+
+  function sendRich(kind, data) {
+    const ts = Date.now();
+    sendJSON({ type: 'rich', kind, data, ts });
+    renderRich('me', kind, data, ts);
+  }
+  function onRich(d) { const c = cleanRich(d.kind, d.data); if (c) renderRich('peer', d.kind, c, d.ts); }
+
+  /* --- small form sheet used for contact / event / location --- */
+
+  function openSheet(title, fields, okText, cb, extra) {
+    ui.sheetTitle.textContent = title; ui.sheetBody.textContent = ''; ui.sheetErr.textContent = '';
+    if (extra) ui.sheetBody.appendChild(extra);
+    fields.forEach((f) => {
+      const w = h('div'), l = h('label', '', f.label), i = document.createElement('input');
+      l.htmlFor = i.id = 'sf_' + f.id; i.type = f.type || 'text'; i.placeholder = f.placeholder || ''; i.maxLength = f.max || 80; i.autocomplete = 'off';
+      if (f.value) i.value = f.value;
+      w.append(l, i); ui.sheetBody.appendChild(w);
+    });
+    ui.sheetOk.textContent = okText; ui.sheetOk.disabled = false; sheetCb = cb; ui.sheet.hidden = false;
+    const first = ui.sheetBody.querySelector('input');
+    if (first) setTimeout(() => first.focus(), 30);
+  }
+  function closeSheet() { ui.sheet.hidden = true; sheetCb = null; }
+
+  function shareContact() {
+    let extra = null;
+    if (navigator.contacts && navigator.contacts.select && window.ContactsManager) {
+      extra = h('button', '', 'Pick from contacts'); extra.type = 'button';
+      extra.addEventListener('click', async () => {
+        try {
+          const r = await navigator.contacts.select(['name', 'tel'], { multiple: false });
+          if (r && r[0]) { $('sf_name').value = String((r[0].name || [])[0] || '').slice(0, 60); $('sf_phone').value = String((r[0].tel || [])[0] || '').slice(0, 30); }
+        } catch (_) {}
+      });
+    }
+    openSheet('Share contact', [{ id: 'name', label: 'Name', placeholder: 'Contact name', max: 60 }, { id: 'phone', label: 'Phone number', placeholder: '+94 77 123 4567', max: 30, type: 'tel' }], 'Send',
+      (v) => { const c = cleanRich('contact', v); if (!c) return 'Enter a name and a valid phone number.'; sendRich('contact', c); return true; }, extra);
+  }
+
+  function shareLocation() {
+    if (!navigator.geolocation) { sysMsg('Location is not supported on this device.'); return; }
+    const info = h('p', '', 'Getting your location…'); let pos = null;
+    openSheet('Share location', [], 'Send', () => {
+      const l = pos && cleanRich('location', pos);
+      if (!l) return 'Waiting for your location…';
+      sendRich('location', l); return true;
+    }, info);
+    ui.sheetOk.disabled = true;
+    navigator.geolocation.getCurrentPosition((p) => {
+      pos = { lat: p.coords.latitude, lng: p.coords.longitude, acc: p.coords.accuracy };
+      info.textContent = 'Your current location (±' + Math.round(p.coords.accuracy || 0) + ' m) will be sent to ' + who() + '.';
+      ui.sheetOk.disabled = false;
+    }, (e) => {
+      info.textContent = e && e.code === 1 ? 'Location permission was denied. Allow it in your browser settings and try again.' : 'Could not get your location. Make sure location is turned on and try again.';
+    }, { enableHighAccuracy: true, timeout: 12000, maximumAge: 30000 });
+  }
+
+  function shareEvent() {
+    const now = new Date(), iso = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+    openSheet('Share event', [
+      { id: 'title', label: 'Event title', placeholder: 'Birthday party', max: 80 },
+      { id: 'date', label: 'Date', type: 'date', value: iso },
+      { id: 'time', label: 'Time', type: 'time', value: '18:00' },
+      { id: 'place', label: 'Place (optional)', max: 100 },
+      { id: 'note', label: 'Note (optional)', max: 200 }
+    ], 'Send', (v) => { const ev = cleanRich('event', v); if (!ev) return 'Enter a title, a date and a time.'; sendRich('event', ev); return true; });
+  }
+
+  /* --- voice message recorder --- */
+
+  async function startVoice() {
+    if (rec) return;
+    if (!window.MediaRecorder || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { sysMsg('Voice recording is not supported on this browser.'); return; }
+    let ms;
+    try { ms = await navigator.mediaDevices.getUserMedia({ audio: true }); } catch (e) { sysMsg(describe(e)); return; }
+    const mime = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg;codecs=opus'].find((t) => MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(t)) || '';
+    let mr;
+    try { mr = new MediaRecorder(ms, mime ? { mimeType: mime } : undefined); }
+    catch (_) { ms.getTracks().forEach((t) => t.stop()); sysMsg('Voice recording is not supported on this browser.'); return; }
+    const r = rec = { mr, chunks: [], start: Date.now(), send: false, timer: null, mime: mr.mimeType || mime || 'audio/webm' };
+    mr.ondataavailable = (e) => { if (e.data && e.data.size) r.chunks.push(e.data); };
+    mr.onstop = () => {
+      clearInterval(r.timer); ms.getTracks().forEach((t) => t.stop());
+      if (rec === r) rec = null;
+      ui.recBar.hidden = true; el.chatForm.hidden = false;
+      if (r.send && r.chunks.length) {
+        const ext = /mp4/.test(r.mime) ? 'm4a' : /ogg/.test(r.mime) ? 'ogg' : 'webm';
+        sendFile(new Blob(r.chunks, { type: r.mime }), 'voice', 'voice-message.' + ext, { dur: Math.round((Date.now() - r.start) / 1000) });
+      }
+    };
+    mr.start(250);
+    el.chatForm.hidden = true; ui.recBar.hidden = false; ui.recTime.textContent = '0:00';
+    r.timer = setInterval(() => { const s = (Date.now() - r.start) / 1000; ui.recTime.textContent = fmtDur(s); if (s >= 300) stopVoice(true); }, 500);
+  }
+  function stopVoice(send) {
+    if (!rec) return;
+    rec.send = send;
+    try { rec.mr.stop(); } catch (_) { clearInterval(rec.timer); rec = null; ui.recBar.hidden = true; el.chatForm.hidden = false; }
+  }
+
+  /* --- live camera shot (front / back) --- */
+
+  function stopCapStream() { if (capStream) { capStream.getTracks().forEach((t) => t.stop()); capStream = null; } ui.capVideo.srcObject = null; }
+  function syncCapFlip() { ui.capFlip.textContent = capFacing === 'user' ? 'Back Cam' : 'Front Cam'; }
+  function capLiveView() {
+    ui.capImg.hidden = true; ui.capVideo.hidden = false; ui.capLive.hidden = false; ui.capReview.hidden = true;
+  }
+
+  async function attachCapture() {
+    ui.capErr.textContent = ''; stopCapStream();
+    if (camTrack && !screenTrack && camTrack.readyState === 'live') { // reuse the call camera so it never fights for the device
+      capOwn = false; capFacing = facing; ui.capVideo.srcObject = new MediaStream([camTrack]);
+    } else {
+      capOwn = true;
+      try {
+        capStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: capFacing } }, audio: false });
+        const fm = capStream.getVideoTracks()[0].getSettings().facingMode;
+        if (fm) capFacing = fm === 'environment' ? 'environment' : 'user';
+        ui.capVideo.srcObject = capStream;
+      } catch (e) { ui.capErr.textContent = describe(e); }
+    }
+    ui.capVideo.classList.toggle('mirror', capFacing === 'user'); syncCapFlip();
+    ui.capVideo.play().catch(() => {});
+  }
+
+  async function openCapture() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { sysMsg('Camera access needs https:// or localhost.'); return; }
+    ui.cap.hidden = false; capLiveView(); await attachCapture();
+  }
+  function closeCap() {
+    stopCapStream(); ui.cap.hidden = true; capBlob = null;
+    if (capUrl) { URL.revokeObjectURL(capUrl); capUrl = null; }
+  }
+  async function flipCapture() {
+    ui.capFlip.disabled = true;
+    if (!capOwn && camTrack) {
+      if (el.flip.disabled) ui.capErr.textContent = 'Only one camera was found.';
+      else await flipCamera(); // the call camera is shared, so the call video switches too
+    } else capFacing = capFacing === 'user' ? 'environment' : 'user';
+    await attachCapture(); ui.capFlip.disabled = false;
+  }
+  function takeShot() {
+    const v = ui.capVideo;
+    if (!capOwn && camTrack && !camTrack.enabled) { ui.capErr.textContent = 'Your camera is turned off. Tap Cam On first.'; return; }
+    if (!v.videoWidth) { ui.capErr.textContent = 'The camera is not ready yet.'; return; }
+    const sc = Math.min(1, 1600 / Math.max(v.videoWidth, v.videoHeight)), c = document.createElement('canvas');
+    c.width = Math.round(v.videoWidth * sc); c.height = Math.round(v.videoHeight * sc);
+    c.getContext('2d').drawImage(v, 0, 0, c.width, c.height); // not mirrored, like a normal photo
+    c.toBlob((b) => {
+      if (!b) return;
+      capBlob = b; if (capUrl) URL.revokeObjectURL(capUrl);
+      capUrl = URL.createObjectURL(b); ui.capImg.src = capUrl;
+      ui.capImg.hidden = false; ui.capVideo.hidden = true; ui.capLive.hidden = true; ui.capReview.hidden = false;
+    }, 'image/jpeg', 0.88);
+  }
+
+  /* --- attach menu wiring --- */
+
+  function toggleAttach(open) {
+    ui.menu.hidden = !open; ui.attach.setAttribute('aria-expanded', String(open)); ui.attach.textContent = open ? '×' : '+';
+    if (open) setTimeout(scrollLog, 0);
+  }
+  function closeAttach() { if (!ui.menu.hidden) toggleAttach(false); }
+
+  function attachAction(a) {
+    if (a === 'photo') ui.fPhoto.click();
+    else if (a === 'video') ui.fVideo.click();
+    else if (a === 'song') ui.fSong.click();
+    else if (a === 'doc') ui.fDoc.click();
+    else if (a === 'voice') startVoice();
+    else if (a === 'contact') shareContact();
+    else if (a === 'location') shareLocation();
+    else if (a === 'event') shareEvent();
+    else if (a === 'camera') openCapture();
+  }
+
+  function resetAttachments() {
+    closeAttach(); stopVoice(false); closeSheet(); closeCap();
+    ui.lb.hidden = true; ui.lbImg.removeAttribute('src');
+    failTransfers(); objectUrls.forEach((u) => URL.revokeObjectURL(u)); objectUrls.length = 0;
+  }
+
+  function initAttachments() {
+    ui.attach.addEventListener('click', (e) => { e.stopPropagation(); toggleAttach(ui.menu.hidden); });
+    ui.menu.addEventListener('click', (e) => { const b = e.target.closest('[data-att]'); if (!b) return; closeAttach(); attachAction(b.dataset.att); });
+    document.addEventListener('click', (e) => { if (!ui.menu.hidden && !ui.menu.contains(e.target) && e.target !== ui.attach) closeAttach(); });
+    [[ui.fPhoto, 'image'], [ui.fVideo, 'video'], [ui.fSong, 'audio'], [ui.fDoc, 'doc']].forEach(([inp, kind]) => {
+      inp.addEventListener('change', async () => {
+        const files = [...inp.files]; inp.value = '';
+        for (const f of files) await sendFile(f, kind, f.name, {});
+      });
+    });
+    ui.recCancel.addEventListener('click', () => stopVoice(false));
+    ui.recSend.addEventListener('click', () => stopVoice(true));
+    ui.sheetCancel.addEventListener('click', closeSheet);
+    ui.sheetForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      if (!sheetCb) return;
+      const vals = {};
+      ui.sheetBody.querySelectorAll('input').forEach((i) => { vals[i.id.slice(3)] = i.value.trim(); });
+      const res = sheetCb(vals);
+      if (res === true) closeSheet(); else ui.sheetErr.textContent = res || '';
+    });
+    ui.capFlip.addEventListener('click', flipCapture);
+    ui.capShot.addEventListener('click', takeShot);
+    ui.capClose.addEventListener('click', closeCap);
+    ui.capRetake.addEventListener('click', () => { capLiveView(); attachCapture(); });
+    ui.capSend.addEventListener('click', () => { if (capBlob) sendFile(capBlob, 'image', 'photo-' + Date.now() + '.jpg', {}); closeCap(); });
+    ui.lb.addEventListener('click', () => { ui.lb.hidden = true; });
+    document.addEventListener('keydown', (e) => {
+      if (e.key !== 'Escape') return;
+      if (!ui.lb.hidden) ui.lb.hidden = true;
+      else if (!ui.cap.hidden) closeCap();
+      else if (!ui.sheet.hidden) closeSheet();
+      else if (!ui.menu.hidden) closeAttach();
+    });
+  }
+
+  /* ---------- Optional profile photo + icon setup ---------- */
+
+  async function readAvatar(file) { // centre-crop to a small square JPEG so it is tiny to send
+    if (!file || !/^image\//.test(file.type)) return '';
+    const url = URL.createObjectURL(file);
+    try {
+      const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
+      const S = 160, c = document.createElement('canvas'); c.width = c.height = S;
+      const s = Math.min(img.naturalWidth, img.naturalHeight);
+      c.getContext('2d').drawImage(img, (img.naturalWidth - s) / 2, (img.naturalHeight - s) / 2, s, s, 0, 0, S, S);
+      return c.toDataURL('image/jpeg', 0.82);
+    } catch (_) { return ''; } finally { URL.revokeObjectURL(url); }
+  }
+
+  function initProfile() {
+    $('avChoose').addEventListener('click', () => $('avFile').click());
+    $('avRemove').addEventListener('click', () => { pendingAvatar = ''; $('avErr').textContent = ''; paintPick(); });
+    $('avFile').addEventListener('change', async (e) => {
+      const f = e.target.files[0]; e.target.value = '';
+      if (!f) return;
+      const data = await readAvatar(f);
+      if (data) { pendingAvatar = data; $('avErr').textContent = ''; } else $('avErr').textContent = 'That image could not be used. Try a JPG or PNG.';
+      paintPick();
+    });
+    el.nameInput.addEventListener('input', paintPick);
+  }
+
+  function initIcons() {
+    tabs.forEach((t) => setIcon(t, t.dataset.tab));
+    all('.js-hang').forEach((b) => setIcon(b, 'hang'));
+    setIcon(el.send, 'send');
+    syncMute(false); syncCam(true); syncFlip(); syncShare(false); syncSpeaker();
+  }
+
   /* ---------- Teardown ---------- */
 
   function cleanup() {
@@ -721,10 +1680,10 @@
     cleanup();
     el.remote.srcObject = null; el.local.srcObject = null; el.wait.hidden = false;
     el.log.textContent = ''; setChat(false);
-    el.share.textContent = 'Share'; el.share.setAttribute('aria-pressed', 'false');
+    syncShare(false);
     syncMute(false); syncCam(true); el.remote.muted = false; syncSpeaker();
-    clearSwitch(); callMode = 'video'; resetPreview(); facing = 'user'; syncFlip();
-    peerName = ''; unread = 0; el.badge.hidden = true; el.nameModal.hidden = true; refreshNames(); setTab('video');
+    clearSwitch(); stopTyping(); showTyping(false); resetAttachments(); callMode = 'video'; resetPreview(); facing = 'user'; syncFlip();
+    peerName = ''; peerAvatar = ''; unread = 0; el.badge.hidden = true; el.nameModal.hidden = true; refreshNames(); setTab('chat');
     el.call.hidden = true; el.lobby.hidden = false;
     el.joinBtn.disabled = false; el.lobbyMsg.textContent = '';
   }
@@ -745,7 +1704,7 @@
     e.preventDefault();
     const text = el.chatInput.value.trim();
     if (!text || !partnerConn || !partnerConn.open) return;
-    try { const ts = Date.now(); partnerConn.send({ type: 'chat', text, ts }); addMsg(text, 'me', ts); el.chatInput.value = ''; }
+    try { const ts = Date.now(); partnerConn.send({ type: 'chat', text, ts }); addMsg(text, 'me', ts); el.chatInput.value = ''; stopTyping(); }
     catch (_) { setStatus('Message could not be sent.', 'error'); }
   });
 
@@ -756,10 +1715,14 @@
   el.share.addEventListener('click', () => (screenTrack ? stopShare() : startShare()));
   tabs.forEach((t) => t.addEventListener('click', () => requestTab(t.dataset.tab)));
   el.flip.addEventListener('click', flipCamera);
+  el.chatInput.addEventListener('input', onType);
+  initAttachments();
   isl.yes.addEventListener('click', () => answerSwitch(true));
   isl.no.addEventListener('click', () => answerSwitch(false));
   isl.cancel.addEventListener('click', cancelOutgoing);
-  initDrag();
+  initWindows();
+  initProfile();
+  initIcons();
   if (navigator.mediaDevices && navigator.mediaDevices.addEventListener) navigator.mediaDevices.addEventListener('devicechange', () => { if (camTrack) checkCams(); });
 
   el.nameBtn.addEventListener('click', () => openNameBox(false));
@@ -768,8 +1731,8 @@
     e.preventDefault();
     const n = el.nameInput.value.trim();
     if (!n) { el.nameInput.focus(); return; }
-    myName = n.slice(0, 24); el.nameModal.hidden = true; refreshNames();
-    sendJSON({ type: 'name', name: myName });
+    myName = n.slice(0, 24); myAvatar = pendingAvatar; el.nameModal.hidden = true; refreshNames();
+    sendJSON({ type: 'name', name: myName }); sendJSON({ type: 'avatar', data: myAvatar });
   });
   window.addEventListener('pagehide', () => { if (peer) cleanup(); });
 
