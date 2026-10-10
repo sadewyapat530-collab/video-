@@ -35,29 +35,91 @@
   .card label { font-weight: 500; font-size: 13.5px; }
   .err { color: #fff; border-left: 2px solid #ff5c5c; padding-left: 12px; min-height: 1.5em; font-size: 13.5px; }
 
-  /* Call */
-  .call { max-width: 1240px; margin: 0 auto; padding: 20px; min-height: 100dvh; display: grid; grid-template-columns: 1fr 340px; gap: 16px; }
+  /* Call: same black/white look, now with tabs, fully responsive */
+  html, body { height: 100%; }
+  .call { max-width: 1240px; margin: 0 auto; height: 100dvh; display: flex; flex-direction: column; gap: 12px;
+    padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); }
   .panel { border: 1px solid var(--line); border-radius: 14px; overflow: hidden; display: flex; flex-direction: column; min-height: 0; }
   .bar { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--line); font-size: 13.5px; }
   .bar strong { font-weight: 600; }
-  #status { color: var(--muted); text-align: right; }
+  .topbar { flex: none; }
+  .who { display: flex; align-items: center; gap: 12px; min-width: 0; }
+  .who .txt { display: flex; flex-direction: column; min-width: 0; }
+  .who strong, .who small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .who small, #status { color: var(--muted); font-size: 12.5px; }
   #status[data-kind="ok"] { color: #fff; }
   #status[data-kind="error"] { color: #ff8a8a; }
-  .stage { position: relative; flex: 1; min-height: 280px; background: #000; }
+  #nameBtn { flex: none; max-width: 45%; padding: 8px 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .avatar { flex: none; width: 38px; height: 38px; border-radius: 50%; border: 1px solid rgba(255,255,255,.55); display: grid; place-items: center; font-weight: 800; }
+  .avatar.big { width: clamp(96px, 28vmin, 170px); height: clamp(96px, 28vmin, 170px); font-size: clamp(36px, 11vmin, 68px); border-color: #fff; }
+
+  .tabs { flex: none; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .tabs button { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 8px; }
+  .badge { min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; background: #fff; color: #000; font-size: 12px; font-weight: 800; display: inline-grid; place-items: center; }
+
+  .views { flex: 1; min-height: 0; display: flex; justify-content: center; }
+  .views > .panel { width: 100%; height: 100%; }
+  #view-chat { max-width: 760px; }
+  #view-voice { max-width: 760px; }
+
+  .stage { position: relative; flex: 1; min-height: 160px; background: #000; }
   #remote { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #000; }
-  #local { position: absolute; right: 14px; top: 14px; width: 28%; max-width: 220px; aspect-ratio: 16/10; object-fit: cover; background: #000; border: 1px solid rgba(255,255,255,.4); border-radius: 10px; }
+  #local { position: absolute; right: 14px; top: 14px; width: 28%; max-width: 220px; aspect-ratio: 16/10; object-fit: cover; background: #000; border: 1px solid rgba(255,255,255,.4); border-radius: 10px; z-index: 2; }
   #local.mirror { transform: scaleX(-1); }
-  .wait { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); text-align: center; padding: 24px; }
+  .wait { position: absolute; inset: 0; display: grid; place-items: center; align-content: center; gap: 14px; color: var(--muted); text-align: center; padding: 24px; }
+  .vtop { position: absolute; left: 0; top: 0; padding: 12px 16px; z-index: 2; display: flex; flex-direction: column; max-width: 60%; text-shadow: 0 1px 6px #000; }
+  .vtop strong { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .vtop span { font-size: 13px; color: rgba(255,255,255,.75); }
   .controls { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; padding: 14px; border-top: 1px solid var(--line); }
 
-  .chat-log { flex: 1; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 10px; min-height: 200px; }
+  .voice-body { flex: 1; min-height: 0; display: grid; place-content: center; justify-items: center; gap: 10px; text-align: center; padding: 20px; }
+  .voice-body h2 { margin: 6px 0 0; font-size: clamp(22px, 5vw, 30px); font-weight: 800; letter-spacing: -.02em; max-width: 90vw; overflow: hidden; text-overflow: ellipsis; }
+  .voice-body p { margin: 0; color: var(--muted); }
+  .voice-body.live .avatar.big { animation: ring 2s infinite; }
+  @keyframes ring { 0% { box-shadow: 0 0 0 0 rgba(255,255,255,.45); } 70% { box-shadow: 0 0 0 26px rgba(255,255,255,0); } 100% { box-shadow: 0 0 0 0 rgba(255,255,255,0); } }
+
+  .chat-log { flex: 1; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 10px; min-height: 120px; }
   .msg { max-width: 82%; padding: 8px 12px; border-radius: 10px; border: 1px solid var(--line); word-break: break-word; }
+  .msg .time { float: right; margin: 8px 0 -2px 12px; font-size: 11px; opacity: .55; }
   .msg.me { align-self: flex-end; background: #fff; color: #000; border-color: #fff; }
   .msg.peer { align-self: flex-start; }
   .msg.sys { align-self: center; border: none; padding: 2px 0; color: var(--muted); font-size: 12.5px; }
   .chat-form { display: flex; gap: 10px; padding: 12px; border-top: 1px solid var(--line); }
+  .chat-form input { flex: 1; min-width: 0; }
+  .chat-form button { flex: none; }
 
-  @media (max-width: 900px) { .call { grid-template-columns: 1fr; } .stage { min-height: 240px; } }
+  /* Username box (shown after joining) */
+  .modal { position: fixed; inset: 0; z-index: 50; background: rgba(0,0,0,.82); display: grid; place-items: center; padding: 20px; overflow-y: auto; }
+  .modal .card { background: #000; }
+  .row { display: flex; gap: 10px; justify-content: flex-end; }
+
+  /* Tablets and phones */
+  @media (max-width: 900px) { .call { gap: 10px; } .stage { min-height: 200px; } }
+  @media (max-width: 640px) {
+    body { font-size: 14.5px; }
+    .call { padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); gap: 8px; }
+    .panel { border-left: 0; border-right: 0; border-radius: 0; }
+    .topbar { border-top: 0; }
+    .tabs { padding: 0 10px; }
+    .controls { gap: 8px; padding: 10px; }
+    .controls button { flex: 1 1 calc(50% - 8px); padding: 10px 8px; }
+    #local { width: 34%; top: 10px; right: 10px; }
+    .card { padding: 24px; }
+    .msg { max-width: 88%; }
+  }
+  /* Short landscape screens */
+  @media (max-height: 520px) {
+    .call { padding-top: 6px; padding-bottom: 6px; gap: 6px; }
+    .bar { padding: 6px 12px; }
+    .tabs button { padding: 6px; }
+    .controls { padding: 6px; }
+    .controls button { padding: 6px 12px; }
+    .chat-form { padding: 8px; }
+    .avatar.big { width: 72px; height: 72px; font-size: 30px; }
+    .voice-body { gap: 4px; padding: 8px; }
+  }
+  /* Large screens */
+  @media (min-width: 1400px) { .call { max-width: 1400px; } #view-chat, #view-voice { max-width: 820px; } }
 </style>
 </head>
 <body>
@@ -76,28 +138,82 @@
 </main>
 
 <div class="call" id="call" hidden>
-  <section class="panel">
-    <div class="bar"><strong id="roomLabel"></strong><span id="status" role="status" aria-live="polite"></span></div>
-    <div class="stage">
-      <video id="remote" autoplay playsinline></video>
-      <video id="local" autoplay playsinline muted></video>
-      <div class="wait" id="wait">Waiting for the other caller to join this room…</div>
+  <header class="panel topbar">
+    <div class="bar">
+      <div class="who">
+        <div class="avatar" id="meAvatar">?</div>
+        <div class="txt"><strong id="roomLabel"></strong><small id="status" role="status" aria-live="polite"></small></div>
+      </div>
+      <button id="nameBtn" type="button" title="Change your name">Set name</button>
     </div>
-    <div class="controls">
-      <button id="muteBtn" type="button" aria-pressed="false">Mute</button>
-      <button id="shareBtn" type="button" aria-pressed="false">Share Screen</button>
-      <button id="hangBtn" class="danger" type="button">Hang Up</button>
-    </div>
-  </section>
+  </header>
 
-  <section class="panel">
-    <div class="bar"><strong>Chat</strong></div>
-    <div class="chat-log" id="chatLog" role="log" aria-live="polite"></div>
-    <form class="chat-form" id="chatForm">
-      <input id="chatInput" placeholder="Type a message" aria-label="Message" autocomplete="off" disabled>
-      <button class="primary" id="sendBtn" type="submit" disabled>Send</button>
+  <nav class="tabs" role="tablist" aria-label="Call views">
+    <button type="button" role="tab" data-tab="video" aria-selected="true" aria-pressed="true">Video</button>
+    <button type="button" role="tab" data-tab="voice" aria-selected="false" aria-pressed="false">Voice</button>
+    <button type="button" role="tab" data-tab="chat" aria-selected="false" aria-pressed="false">Chat <span class="badge" id="badge" hidden>0</span></button>
+  </nav>
+
+  <main class="views">
+    <!-- Video call -->
+    <section class="panel" id="view-video" role="tabpanel">
+      <div class="stage">
+        <video id="remote" autoplay playsinline></video>
+        <video id="local" autoplay playsinline muted></video>
+        <div class="wait" id="wait"><div class="avatar big js-peeravatar">?</div><div>Waiting for the other caller to join this room…</div></div>
+        <div class="vtop"><strong class="js-peername">Other caller</strong><span class="js-timer">Waiting…</span></div>
+      </div>
+      <div class="controls">
+        <button class="js-mute" type="button" aria-pressed="false">Mute</button>
+        <button id="camBtn" type="button" aria-pressed="false">Camera Off</button>
+        <button id="shareBtn" type="button" aria-pressed="false">Share Screen</button>
+        <button class="danger js-hang" type="button">Hang Up</button>
+      </div>
+    </section>
+
+    <!-- Voice call -->
+    <section class="panel" id="view-voice" role="tabpanel" hidden>
+      <div class="bar"><strong>Voice call</strong><span class="js-timer" style="color:var(--muted)">Waiting…</span></div>
+      <div class="voice-body" id="voiceBody">
+        <div class="avatar big js-peeravatar">?</div>
+        <h2 class="js-peername">Other caller</h2>
+        <p class="js-timer">Waiting…</p>
+      </div>
+      <div class="controls">
+        <button class="js-mute" type="button" aria-pressed="false">Mute</button>
+        <button id="spkBtn" type="button" aria-pressed="false">Speaker</button>
+        <button class="danger js-hang" type="button">Hang Up</button>
+      </div>
+    </section>
+
+    <!-- Chat -->
+    <section class="panel" id="view-chat" role="tabpanel" hidden>
+      <div class="bar">
+        <div class="who"><div class="avatar js-peeravatar">?</div><div class="txt"><strong class="js-peername">Other caller</strong><small id="chatState">waiting…</small></div></div>
+      </div>
+      <div class="chat-log" id="chatLog" role="log" aria-live="polite"></div>
+      <form class="chat-form" id="chatForm">
+        <input id="chatInput" placeholder="Type a message" aria-label="Message" autocomplete="off" disabled>
+        <button class="primary" id="sendBtn" type="submit" disabled>Send</button>
+      </form>
+    </section>
+  </main>
+
+  <!-- Username box: appears after joining the room -->
+  <div class="modal" id="nameModal" hidden>
+    <form class="card" id="nameForm">
+      <h1>Your name</h1>
+      <p>This name is shown to the other caller in video, voice and chat.</p>
+      <div>
+        <label for="nameInput">Name</label>
+        <input id="nameInput" autocomplete="off" spellcheck="false" placeholder="Enter your name" maxlength="24">
+      </div>
+      <div class="row">
+        <button type="button" id="nameCancel" hidden>Cancel</button>
+        <button class="primary" type="submit">Continue</button>
+      </div>
     </form>
-  </section>
+  </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
@@ -113,9 +229,14 @@
   const el = {
     lobby: $('lobby'), call: $('call'), form: $('joinForm'), room: $('room'), joinBtn: $('joinBtn'), lobbyMsg: $('lobbyMsg'),
     roomLabel: $('roomLabel'), status: $('status'), remote: $('remote'), local: $('local'), wait: $('wait'),
-    mute: $('muteBtn'), share: $('shareBtn'), hang: $('hangBtn'),
-    log: $('chatLog'), chatForm: $('chatForm'), chatInput: $('chatInput'), send: $('sendBtn')
+    share: $('shareBtn'), cam: $('camBtn'), spk: $('spkBtn'),
+    log: $('chatLog'), chatForm: $('chatForm'), chatInput: $('chatInput'), send: $('sendBtn'),
+    meAvatar: $('meAvatar'), nameBtn: $('nameBtn'), nameModal: $('nameModal'), nameForm: $('nameForm'), nameInput: $('nameInput'),
+    nameCancel: $('nameCancel'), badge: $('badge'), chatState: $('chatState'), voiceBody: $('voiceBody')
   };
+  const all = (sel) => [...document.querySelectorAll(sel)];
+  const tabs = all('.tabs button'), views = { video: $('view-video'), voice: $('view-voice'), chat: $('view-chat') };
+  let myName = '', peerName = '', activeTab = 'video', unread = 0, timerId = null, callStart = 0;
 
   let peer, key, slot, stream, camTrack, screenTrack, partnerConn, partnerCall, pollTimer, connecting, left;
   const viewers = new Map(); // viewer peer id -> { conn, call }
@@ -133,12 +254,53 @@
   }
 
   function setStatus(text, kind = 'info') { el.status.textContent = text; el.status.dataset.kind = kind; }
-  function addMsg(text, who) {
+  const hhmm = (t) => new Date(t || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  function addMsg(text, who, ts) {
     const d = document.createElement('div');
-    d.className = 'msg ' + who; d.textContent = text;
+    d.className = 'msg ' + who;
+    d.appendChild(document.createTextNode(text));
+    if (who !== 'sys') { const t = document.createElement('span'); t.className = 'time'; t.textContent = hhmm(ts); d.appendChild(t); }
     el.log.appendChild(d); el.log.scrollTop = el.log.scrollHeight;
+    if (who === 'peer' && activeTab !== 'chat') { unread++; el.badge.textContent = unread; el.badge.hidden = false; }
   }
-  function setChat(on) { el.chatInput.disabled = !on; el.send.disabled = !on; }
+  function setChat(on) {
+    el.chatInput.disabled = !on; el.send.disabled = !on;
+    el.chatState.textContent = on ? 'online' : 'waiting…';
+  }
+
+  /* ---------- Names, tabs, timer ---------- */
+
+  const initial = (n) => ((n || '').trim().charAt(0) || '?').toUpperCase();
+  function refreshNames() {
+    all('.js-peername').forEach((n) => { n.textContent = peerName || 'Other caller'; });
+    all('.js-peeravatar').forEach((n) => { n.textContent = initial(peerName); });
+    el.meAvatar.textContent = initial(myName);
+    el.nameBtn.textContent = myName ? 'Name: ' + myName : 'Set name';
+  }
+  function sendJSON(obj) { try { if (partnerConn && partnerConn.open) partnerConn.send(obj); } catch (_) {} }
+
+  function setTab(name) {
+    activeTab = name;
+    tabs.forEach((t) => { const on = t.dataset.tab === name; t.setAttribute('aria-selected', String(on)); t.setAttribute('aria-pressed', String(on)); });
+    Object.keys(views).forEach((k) => { views[k].hidden = k !== name; });
+    if (name === 'chat') { unread = 0; el.badge.hidden = true; el.log.scrollTop = el.log.scrollHeight; }
+  }
+
+  function fmt(ms) { const s = Math.floor(ms / 1000), m = Math.floor(s / 60); return String(m).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); }
+  function setTimerText(t) { all('.js-timer').forEach((n) => { n.textContent = t; }); }
+  function startTimer() {
+    if (timerId) return;
+    callStart = Date.now(); el.voiceBody.classList.add('live'); setTimerText('00:00');
+    timerId = setInterval(() => setTimerText(fmt(Date.now() - callStart)), 1000);
+  }
+  function stopTimer(text) {
+    clearInterval(timerId); timerId = null; el.voiceBody.classList.remove('live'); setTimerText(text || 'Waiting…');
+  }
+
+  function openNameBox(first) {
+    el.nameInput.value = myName; el.nameCancel.hidden = first || !myName;
+    el.nameModal.hidden = false; setTimeout(() => el.nameInput.focus(), 30);
+  }
 
   function describe(e) {
     switch (e && (e.type || e.name)) {
@@ -200,8 +362,20 @@
     const t = stream && stream.getAudioTracks()[0];
     if (!t) return;
     t.enabled = !t.enabled;
-    el.mute.textContent = t.enabled ? 'Mute' : 'Unmute';
-    el.mute.setAttribute('aria-pressed', String(!t.enabled));
+    syncMute(!t.enabled);
+  }
+  function syncMute(muted) {
+    all('.js-mute').forEach((b) => { b.textContent = muted ? 'Unmute' : 'Mute'; b.setAttribute('aria-pressed', String(muted)); });
+  }
+  function toggleCam() {
+    if (!camTrack) return;
+    camTrack.enabled = !camTrack.enabled; syncCam(camTrack.enabled);
+  }
+  function syncCam(on) {
+    el.cam.textContent = on ? 'Camera Off' : 'Camera On'; el.cam.setAttribute('aria-pressed', String(!on));
+  }
+  function syncSpeaker() {
+    el.spk.textContent = el.remote.muted ? 'Speaker Off' : 'Speaker'; el.spk.setAttribute('aria-pressed', String(el.remote.muted));
   }
 
   /* ---------- Signaling and connections ---------- */
@@ -240,9 +414,11 @@
     el.local.classList.toggle('mirror', !!camTrack);
     el.share.disabled = !camTrack;
     el.share.title = camTrack ? '' : 'Screen sharing needs a camera-enabled session';
-    el.mute.disabled = !stream.getAudioTracks()[0];
+    all('.js-mute').forEach((b) => { b.disabled = !stream.getAudioTracks()[0]; });
+    el.cam.disabled = !camTrack; syncMute(false); syncCam(true);
     el.lobby.hidden = true; el.call.hidden = false;
     setStatus(slot === 1 ? 'Waiting for the other caller…' : 'Looking for the other caller…');
+    setTab('video'); refreshNames(); openNameBox(true); // username box appears after joining the room
     if (slot === 2) { poll(); pollTimer = setInterval(poll, 3000); } // caller 2 always dials caller 1
   }
 
@@ -263,11 +439,16 @@
     const old = partnerConn;
     partnerConn = conn;
     if (old && old !== conn) { try { old.close(); } catch (_) {} }
-    conn.on('data', (d) => { if (d && d.type === 'chat' && typeof d.text === 'string') addMsg(d.text, 'peer'); });
+    conn.on('data', (d) => {
+      if (!d) return;
+      if (d.type === 'chat' && typeof d.text === 'string') addMsg(d.text, 'peer', d.ts);
+      else if (d.type === 'name' && typeof d.name === 'string') { peerName = d.name.slice(0, 24); refreshNames(); }
+    });
     conn.on('close', () => { if (partnerConn === conn) partnerLost(); });
     setChat(true);
+    if (myName) sendJSON({ type: 'name', name: myName });
     addMsg('The other caller joined', 'sys');
-    setStatus('Connected', 'ok');
+    setStatus('Connected', 'ok'); startTimer();
   }
 
   function setPartnerCall(call) {
@@ -283,8 +464,8 @@
     partnerConn = null;
     if (partnerCall) { try { partnerCall.close(); } catch (_) {} partnerCall = null; }
     el.remote.srcObject = null; el.wait.hidden = false;
-    setChat(false);
-    addMsg('The other caller left', 'sys');
+    setChat(false); stopTimer('Call ended');
+    addMsg((peerName || 'The other caller') + ' left', 'sys'); peerName = ''; refreshNames();
     setStatus(slot === 1 ? 'Waiting for the other caller…' : 'Looking for the other caller…');
   }
 
@@ -314,7 +495,7 @@
 
   function cleanup() {
     left = true;
-    clearInterval(pollTimer);
+    clearInterval(pollTimer); stopTimer();
     if (screenTrack) { screenTrack.onended = null; screenTrack.stop(); }
     viewers.forEach((v) => { try { v.conn.close(); v.call.close(); } catch (_) {} });
     viewers.clear();
@@ -331,7 +512,8 @@
     el.remote.srcObject = null; el.local.srcObject = null; el.wait.hidden = false;
     el.log.textContent = ''; setChat(false);
     el.share.textContent = 'Share Screen'; el.share.setAttribute('aria-pressed', 'false');
-    el.mute.textContent = 'Mute'; el.mute.setAttribute('aria-pressed', 'false');
+    syncMute(false); syncCam(true); el.remote.muted = false; syncSpeaker();
+    peerName = ''; unread = 0; el.badge.hidden = true; el.nameModal.hidden = true; refreshNames(); setTab('video');
     el.call.hidden = true; el.lobby.hidden = false;
     el.joinBtn.disabled = false; el.lobbyMsg.textContent = '';
   }
@@ -352,13 +534,26 @@
     e.preventDefault();
     const text = el.chatInput.value.trim();
     if (!text || !partnerConn || !partnerConn.open) return;
-    try { partnerConn.send({ type: 'chat', text }); addMsg(text, 'me'); el.chatInput.value = ''; }
+    try { const ts = Date.now(); partnerConn.send({ type: 'chat', text, ts }); addMsg(text, 'me', ts); el.chatInput.value = ''; }
     catch (_) { setStatus('Message could not be sent.', 'error'); }
   });
 
-  el.mute.addEventListener('click', toggleMute);
+  all('.js-mute').forEach((b) => b.addEventListener('click', toggleMute));
+  all('.js-hang').forEach((b) => b.addEventListener('click', hangUp));
+  el.cam.addEventListener('click', toggleCam);
+  el.spk.addEventListener('click', () => { el.remote.muted = !el.remote.muted; syncSpeaker(); });
   el.share.addEventListener('click', () => (screenTrack ? stopShare() : startShare()));
-  el.hang.addEventListener('click', hangUp);
+  tabs.forEach((t) => t.addEventListener('click', () => setTab(t.dataset.tab)));
+
+  el.nameBtn.addEventListener('click', () => openNameBox(false));
+  el.nameCancel.addEventListener('click', () => { el.nameModal.hidden = true; });
+  el.nameForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const n = el.nameInput.value.trim();
+    if (!n) { el.nameInput.focus(); return; }
+    myName = n.slice(0, 24); el.nameModal.hidden = true; refreshNames();
+    sendJSON({ type: 'name', name: myName });
+  });
   window.addEventListener('pagehide', () => { if (peer) cleanup(); });
 
   if (location.hash.length > 1) { try { el.room.value = decodeURIComponent(location.hash.slice(1)); } catch (_) {} }
