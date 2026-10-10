@@ -70,7 +70,8 @@
   .vtop { position: absolute; left: 0; top: 0; padding: 12px 16px; z-index: 2; display: flex; flex-direction: column; max-width: 60%; text-shadow: 0 1px 6px #000; }
   .vtop strong { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .vtop span { font-size: 13px; color: rgba(255,255,255,.75); }
-  .controls { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; padding: 14px; border-top: 1px solid var(--line); }
+  .controls { display: flex; flex-wrap: nowrap; gap: 10px; justify-content: center; padding: 14px; border-top: 1px solid var(--line); }
+  .controls button { flex: 0 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
   .voice-body { flex: 1; min-height: 0; display: grid; place-content: center; justify-items: center; gap: 10px; text-align: center; padding: 20px; }
   .voice-body h2 { margin: 6px 0 0; font-size: clamp(22px, 5vw, 30px); font-weight: 800; letter-spacing: -.02em; max-width: 90vw; overflow: hidden; text-overflow: ellipsis; }
@@ -88,6 +89,37 @@
   .chat-form input { flex: 1; min-width: 0; }
   .chat-form button { flex: none; }
 
+
+  /* Draggable self-preview */
+  #local { cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; }
+  #local.dragging { cursor: grabbing; border-color: #fff; box-shadow: 0 0 0 1px #fff, 0 0 22px rgba(255,255,255,.45); }
+
+  /* Dynamic Island (tab-switch request) */
+  .scrim { position: fixed; inset: 0; z-index: 90; pointer-events: none; opacity: 0; transition: opacity .6s ease;
+    background: radial-gradient(ellipse 80% 45% at 50% 0, rgba(255,255,255,.14), rgba(0,0,0,.55) 70%); }
+  .island { position: fixed; z-index: 100; top: calc(env(safe-area-inset-top, 0px) + 10px); left: 50%; width: 132px;
+    background: #000; color: #fff; border: 1px solid rgba(255,255,255,.3); border-radius: 26px; overflow: hidden;
+    box-shadow: 0 12px 40px rgba(0,0,0,.8), 0 0 18px rgba(255,255,255,.12);
+    visibility: hidden; opacity: 0; pointer-events: none; transform: translate(-50%, -160%) scale(.55);
+    transition: transform .6s cubic-bezier(.34,1.56,.64,1), opacity .3s ease, width .65s cubic-bezier(.34,1.35,.64,1), border-radius .5s ease, box-shadow .5s ease, visibility 0s linear .65s; }
+  .island[data-state="pill"], .island[data-state="open"] { visibility: visible; opacity: 1; pointer-events: auto; transform: translate(-50%, 0) scale(1);
+    transition: transform .6s cubic-bezier(.34,1.56,.64,1), opacity .3s ease, width .65s cubic-bezier(.34,1.35,.64,1), border-radius .5s ease, box-shadow .5s ease, visibility 0s; }
+  .island[data-state="open"] { width: min(92vw, 400px); border-radius: 30px; animation: islandGlow 2.4s ease-in-out infinite .7s; }
+  @keyframes islandGlow { 0%, 100% { box-shadow: 0 12px 40px rgba(0,0,0,.8), 0 0 18px rgba(255,255,255,.12); } 50% { box-shadow: 0 12px 40px rgba(0,0,0,.8), 0 0 34px rgba(255,255,255,.38); } }
+  .island[data-state="open"] + .scrim { opacity: 1; }
+  .isl-head { display: flex; align-items: center; gap: 10px; padding: 11px 16px; font-weight: 700; font-size: 13.5px; white-space: nowrap; }
+  .isl-dot { flex: none; width: 9px; height: 9px; border-radius: 50%; background: #fff; box-shadow: 0 0 10px #fff; animation: dotPulse 1.4s ease-in-out infinite; }
+  @keyframes dotPulse { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(.6); opacity: .5; } }
+  .isl-reveal { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .55s cubic-bezier(.2,.9,.3,1) .1s; }
+  .island[data-state="open"] .isl-reveal { grid-template-rows: 1fr; }
+  .isl-inner { min-height: 0; overflow: hidden; opacity: 0; filter: blur(8px); transform: translateY(-6px);
+    transition: opacity .4s ease .25s, filter .45s ease .25s, transform .45s ease .25s; }
+  .island[data-state="open"] .isl-inner { opacity: 1; filter: blur(0); transform: none; }
+  .isl-inner p { margin: 0; padding: 0 18px 14px; color: rgba(255,255,255,.78); font-size: 14px; }
+  .isl-actions { display: flex; flex-wrap: nowrap; gap: 10px; padding: 0 14px 14px; }
+  .isl-actions button { flex: 1 1 0; min-width: 0; white-space: nowrap; padding: 10px 8px; border-radius: 22px; }
+  @media (prefers-reduced-motion: reduce) { .island, .isl-reveal, .isl-inner, .scrim { transition-duration: .01s !important; transition-delay: 0s !important; } .island[data-state="open"], .isl-dot, .voice-body.live .avatar.big { animation: none; } }
+
   /* Username box (shown after joining) */
   .modal { position: fixed; inset: 0; z-index: 50; background: rgba(0,0,0,.82); display: grid; place-items: center; padding: 20px; overflow-y: auto; }
   .modal .card { background: #000; }
@@ -102,7 +134,7 @@
     .topbar { border-top: 0; }
     .tabs { padding: 0 10px; }
     .controls { gap: 8px; padding: 10px; }
-    .controls button { flex: 1 1 calc(50% - 8px); padding: 10px 8px; }
+    .controls button { flex: 1 1 0; padding: 10px 4px; font-size: 13px; }
     #local { width: 34%; top: 10px; right: 10px; }
     .card { padding: 24px; }
     .msg { max-width: 88%; }
@@ -165,8 +197,9 @@
       </div>
       <div class="controls">
         <button class="js-mute" type="button" aria-pressed="false">Mute</button>
-        <button id="camBtn" type="button" aria-pressed="false">Camera Off</button>
-        <button id="shareBtn" type="button" aria-pressed="false">Share Screen</button>
+        <button id="camBtn" type="button" aria-pressed="false">Cam Off</button>
+        <button id="flipBtn" type="button" title="Switch between front and back camera">Back Cam</button>
+        <button id="shareBtn" type="button" aria-pressed="false">Share</button>
         <button class="danger js-hang" type="button">Hang Up</button>
       </div>
     </section>
@@ -216,6 +249,16 @@
   </div>
 </div>
 
+<div class="island" id="island" data-state="hidden" data-kind="ask" role="alertdialog" aria-live="assertive" aria-labelledby="islTitle">
+  <div class="isl-head"><span class="isl-dot"></span><span id="islTitle">Switch</span></div>
+  <div class="isl-reveal"><div class="isl-inner">
+    <p id="islText"></p>
+    <div class="isl-actions" id="islAsk" hidden><button type="button" id="islNo">No</button><button type="button" class="primary" id="islYes">Yes</button></div>
+    <div class="isl-actions" id="islWait" hidden><button type="button" id="islCancel">Cancel</button></div>
+  </div></div>
+</div>
+<div class="scrim"></div>
+
 <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <script>window.Peer || document.write('<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"><\/script>')</script>
 <script>
@@ -229,14 +272,14 @@
   const el = {
     lobby: $('lobby'), call: $('call'), form: $('joinForm'), room: $('room'), joinBtn: $('joinBtn'), lobbyMsg: $('lobbyMsg'),
     roomLabel: $('roomLabel'), status: $('status'), remote: $('remote'), local: $('local'), wait: $('wait'),
-    share: $('shareBtn'), cam: $('camBtn'), spk: $('spkBtn'),
+    share: $('shareBtn'), cam: $('camBtn'), flip: $('flipBtn'), spk: $('spkBtn'),
     log: $('chatLog'), chatForm: $('chatForm'), chatInput: $('chatInput'), send: $('sendBtn'),
     meAvatar: $('meAvatar'), nameBtn: $('nameBtn'), nameModal: $('nameModal'), nameForm: $('nameForm'), nameInput: $('nameInput'),
     nameCancel: $('nameCancel'), badge: $('badge'), chatState: $('chatState'), voiceBody: $('voiceBody')
   };
   const all = (sel) => [...document.querySelectorAll(sel)];
   const tabs = all('.tabs button'), views = { video: $('view-video'), voice: $('view-voice'), chat: $('view-chat') };
-  let myName = '', peerName = '', activeTab = 'video', unread = 0, timerId = null, callStart = 0;
+  let myName = '', peerName = '', activeTab = 'video', callMode = 'video', unread = 0, timerId = null, callStart = 0, facing = 'user', flipping = false;
 
   let peer, key, slot, stream, camTrack, screenTrack, partnerConn, partnerCall, pollTimer, connecting, left;
   const viewers = new Map(); // viewer peer id -> { conn, call }
@@ -334,7 +377,7 @@
     stream.getVideoTracks().forEach((t) => stream.removeTrack(t));
     stream.addTrack(track);
     el.local.srcObject = new MediaStream([track]);
-    el.local.classList.toggle('mirror', track === camTrack);
+    el.local.classList.toggle('mirror', track === camTrack && facing === 'user');
   }
 
   async function startShare() {
@@ -344,7 +387,7 @@
       screenTrack = s.getVideoTracks()[0];
       screenTrack.onended = stopShare;
       await swapVideo(screenTrack);
-      el.share.textContent = 'Stop Sharing'; el.share.setAttribute('aria-pressed', 'true');
+      el.share.textContent = 'Stop'; el.share.setAttribute('aria-pressed', 'true');
     } catch (e) {
       screenTrack = null;
       if (e.name !== 'NotAllowedError') setStatus('Could not start screen sharing.', 'error');
@@ -355,7 +398,7 @@
     if (!screenTrack) return;
     const t = screenTrack; screenTrack = null; t.onended = null; t.stop();
     if (camTrack) await swapVideo(camTrack);
-    el.share.textContent = 'Share Screen'; el.share.setAttribute('aria-pressed', 'false');
+    el.share.textContent = 'Share'; el.share.setAttribute('aria-pressed', 'false');
   }
 
   function toggleMute() {
@@ -372,7 +415,7 @@
     camTrack.enabled = !camTrack.enabled; syncCam(camTrack.enabled);
   }
   function syncCam(on) {
-    el.cam.textContent = on ? 'Camera Off' : 'Camera On'; el.cam.setAttribute('aria-pressed', String(!on));
+    el.cam.textContent = on ? 'Cam Off' : 'Cam On'; el.cam.setAttribute('aria-pressed', String(!on));
   }
   function syncSpeaker() {
     el.spk.textContent = el.remote.muted ? 'Speaker Off' : 'Speaker'; el.spk.setAttribute('aria-pressed', String(el.remote.muted));
@@ -395,6 +438,7 @@
     key = roomKey(room);
     stream = await getMedia();
     camTrack = stream.getVideoTracks()[0] || null;
+    facing = camTrack && (camTrack.getSettings().facingMode === 'environment') ? 'environment' : 'user';
     for (let round = 0; round < 3 && !peer; round++) {
       for (const s of [1, 2]) {
         try { peer = await openPeer(idFor(key, s)); slot = s; break; }
@@ -411,11 +455,11 @@
 
     el.roomLabel.textContent = room;
     el.local.srcObject = new MediaStream(stream.getVideoTracks());
-    el.local.classList.toggle('mirror', !!camTrack);
+    el.local.classList.toggle('mirror', !!camTrack && facing === 'user');
     el.share.disabled = !camTrack;
     el.share.title = camTrack ? '' : 'Screen sharing needs a camera-enabled session';
     all('.js-mute').forEach((b) => { b.disabled = !stream.getAudioTracks()[0]; });
-    el.cam.disabled = !camTrack; syncMute(false); syncCam(true);
+    el.cam.disabled = !camTrack; syncMute(false); syncCam(true); syncFlip(); checkCams(); callMode = 'video'; clearSwitch();
     el.lobby.hidden = true; el.call.hidden = false;
     setStatus(slot === 1 ? 'Waiting for the other caller…' : 'Looking for the other caller…');
     setTab('video'); refreshNames(); openNameBox(true); // username box appears after joining the room
@@ -443,12 +487,14 @@
       if (!d) return;
       if (d.type === 'chat' && typeof d.text === 'string') addMsg(d.text, 'peer', d.ts);
       else if (d.type === 'name' && typeof d.name === 'string') { peerName = d.name.slice(0, 24); refreshNames(); }
+      else if (typeof d.type === 'string' && d.type.indexOf('tab-') === 0) onTabMsg(d);
     });
     conn.on('close', () => { if (partnerConn === conn) partnerLost(); });
     setChat(true);
     if (myName) sendJSON({ type: 'name', name: myName });
     addMsg('The other caller joined', 'sys');
     setStatus('Connected', 'ok'); startTimer();
+    callMode = 'video'; if (activeTab !== 'chat') setTab('video'); // both callers always start together in video
   }
 
   function setPartnerCall(call) {
@@ -464,7 +510,7 @@
     partnerConn = null;
     if (partnerCall) { try { partnerCall.close(); } catch (_) {} partnerCall = null; }
     el.remote.srcObject = null; el.wait.hidden = false;
-    setChat(false); stopTimer('Call ended');
+    setChat(false); stopTimer('Call ended'); clearSwitch();
     addMsg((peerName || 'The other caller') + ' left', 'sys'); peerName = ''; refreshNames();
     setStatus(slot === 1 ? 'Waiting for the other caller…' : 'Looking for the other caller…');
   }
@@ -491,6 +537,170 @@
     else call.close();
   }
 
+  /* ---------- Front / back camera ---------- */
+
+  function syncFlip() { el.flip.textContent = facing === 'user' ? 'Back Cam' : 'Front Cam'; }
+
+  async function checkCams() {
+    try {
+      const d = await navigator.mediaDevices.enumerateDevices();
+      el.flip.disabled = !camTrack || d.filter((x) => x.kind === 'videoinput').length < 2;
+    } catch (_) { el.flip.disabled = !camTrack; }
+    el.flip.title = el.flip.disabled ? 'Only one camera was found' : 'Switch between front and back camera';
+  }
+
+  function restoreStatus() {
+    if (partnerConn && partnerConn.open) setStatus('Connected', 'ok');
+    else setStatus(slot === 1 ? 'Waiting for the other caller…' : 'Looking for the other caller…');
+  }
+
+  async function flipCamera() {
+    if (flipping || !camTrack) return;
+    flipping = true; el.flip.disabled = true;
+    const want = facing === 'user' ? 'environment' : 'user';
+    const wasOn = camTrack.enabled, oldId = camTrack.getSettings().deviceId;
+    camTrack.stop(); // many phones cannot open two cameras at once
+    const attempts = [{ facingMode: { exact: want } }];
+    try {
+      const next = (await navigator.mediaDevices.enumerateDevices()).find((d) => d.kind === 'videoinput' && d.deviceId && d.deviceId !== oldId);
+      if (next) attempts.push({ deviceId: { exact: next.deviceId } });
+    } catch (_) {}
+    let track = null;
+    for (const v of attempts) {
+      try { track = (await navigator.mediaDevices.getUserMedia({ video: v })).getVideoTracks()[0]; break; } catch (_) {}
+    }
+    if (track) facing = want;
+    else {
+      try { track = (await navigator.mediaDevices.getUserMedia({ video: oldId ? { deviceId: { exact: oldId } } : true })).getVideoTracks()[0]; } catch (_) {}
+      setStatus('Could not switch the camera.', 'error'); setTimeout(restoreStatus, 3000);
+    }
+    if (track) {
+      track.enabled = wasOn; camTrack = track;
+      if (!screenTrack) await swapVideo(track);
+    }
+    syncFlip(); flipping = false; checkCams();
+  }
+
+  /* ---------- Draggable self-preview ---------- */
+
+  let dragFx = null, dragFy = null;
+  function placePreview() {
+    if (dragFx === null) return;
+    const v = el.local, st = v.parentElement, fw = st.clientWidth - v.offsetWidth, fh = st.clientHeight - v.offsetHeight;
+    if (st.clientWidth === 0) return; // tab hidden
+    v.style.right = 'auto'; v.style.left = Math.max(fw, 0) * dragFx + 'px'; v.style.top = Math.max(fh, 0) * dragFy + 'px';
+  }
+  function resetPreview() { dragFx = dragFy = null; el.local.style.left = el.local.style.top = el.local.style.right = ''; }
+  function initDrag() {
+    const v = el.local; let pid = null, ox = 0, oy = 0;
+    const end = () => { pid = null; v.classList.remove('dragging'); };
+    v.addEventListener('pointerdown', (e) => {
+      if (e.button) return;
+      const r = v.getBoundingClientRect();
+      ox = e.clientX - r.left; oy = e.clientY - r.top; pid = e.pointerId;
+      try { v.setPointerCapture(pid); } catch (_) {}
+      v.classList.add('dragging'); e.preventDefault();
+    });
+    v.addEventListener('pointermove', (e) => {
+      if (pid !== e.pointerId) return;
+      const s = v.parentElement.getBoundingClientRect(), fw = Math.max(s.width - v.offsetWidth, 0), fh = Math.max(s.height - v.offsetHeight, 0);
+      const left = Math.min(Math.max(e.clientX - s.left - ox, 0), fw), top = Math.min(Math.max(e.clientY - s.top - oy, 0), fh);
+      dragFx = fw ? left / fw : 0; dragFy = fh ? top / fh : 0;
+      v.style.right = 'auto'; v.style.left = left + 'px'; v.style.top = top + 'px';
+    });
+    ['pointerup', 'pointercancel', 'lostpointercapture'].forEach((n) => v.addEventListener(n, end));
+    if (window.ResizeObserver) new ResizeObserver(placePreview).observe(v.parentElement);
+    window.addEventListener('resize', placePreview);
+    window.addEventListener('orientationchange', () => setTimeout(placePreview, 250));
+  }
+
+  /* ---------- Dynamic Island: ask the other caller before switching Video <-> Voice ---------- */
+
+  const isl = { box: $('island'), title: $('islTitle'), text: $('islText'), ask: $('islAsk'), wait: $('islWait'),
+    yes: $('islYes'), no: $('islNo'), cancel: $('islCancel') };
+  let outgoing = null, incoming = null, openTimer = null, hideTimer = null, infoTimer = null;
+  const modeName = (m) => (m === 'voice' ? 'Voice call' : 'Video call');
+  const who = () => peerName || 'The other caller';
+  const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+
+  function showIsland(kind, title, text) {
+    clearTimeout(openTimer); clearTimeout(hideTimer); clearTimeout(infoTimer);
+    isl.title.textContent = title; isl.text.textContent = text;
+    isl.ask.hidden = kind !== 'ask'; isl.wait.hidden = kind !== 'wait'; isl.box.dataset.kind = kind;
+    if (isl.box.dataset.state === 'hidden') {
+      isl.box.dataset.state = 'pill'; // drops in as a small pill, then expands
+      openTimer = setTimeout(() => { isl.box.dataset.state = 'open'; }, 340);
+    } else isl.box.dataset.state = 'open';
+  }
+  function hideIsland() {
+    clearTimeout(openTimer); clearTimeout(hideTimer); clearTimeout(infoTimer);
+    if (isl.box.dataset.state === 'hidden') return;
+    isl.box.dataset.state = 'pill';
+    hideTimer = setTimeout(() => { isl.box.dataset.state = 'hidden'; }, 420);
+  }
+  function flashIsland(title, text, ms) { showIsland('info', title, text); infoTimer = setTimeout(hideIsland, ms || 2600); }
+
+  function applyMode(m) { callMode = m; setTab(m); }
+
+  function requestTab(name) {
+    if (name === 'chat') { setTab('chat'); return; }
+    const connected = partnerConn && partnerConn.open;
+    if (name === callMode || !connected) {
+      if (outgoing && name === callMode) cancelOutgoing(); // changed my mind
+      callMode = name; setTab(name); return;
+    }
+    if (incoming && incoming.tab === name) { answerSwitch(true); return; }
+    if (outgoing) { clearTimeout(outgoing.timer); sendJSON({ type: 'tab-cancel', id: outgoing.id }); }
+    const o = { tab: name, id: newId() };
+    o.timer = setTimeout(() => {
+      if (outgoing !== o) return;
+      outgoing = null; sendJSON({ type: 'tab-cancel', id: o.id });
+      flashIsland('No reply', who() + " didn't respond.");
+    }, 25000);
+    outgoing = o;
+    sendJSON({ type: 'tab-req', tab: name, id: o.id });
+    showIsland('wait', 'Asking…', 'Asking ' + who() + ' to switch to ' + modeName(name) + '…');
+  }
+
+  function cancelOutgoing() {
+    if (!outgoing) { hideIsland(); return; }
+    clearTimeout(outgoing.timer); sendJSON({ type: 'tab-cancel', id: outgoing.id }); outgoing = null; hideIsland();
+  }
+
+  function answerSwitch(ok) {
+    if (!incoming) { hideIsland(); return; }
+    const r = incoming; incoming = null;
+    sendJSON({ type: 'tab-res', tab: r.tab, id: r.id, ok });
+    hideIsland();
+    if (ok) applyMode(r.tab);
+  }
+
+  function onTabMsg(d) {
+    if (d.type === 'tab-req') {
+      if (d.tab !== 'video' && d.tab !== 'voice') return;
+      if (outgoing && outgoing.tab === d.tab) { // both asked for the same thing: just do it
+        clearTimeout(outgoing.timer); outgoing = null;
+        sendJSON({ type: 'tab-res', tab: d.tab, id: d.id, ok: true }); applyMode(d.tab); hideIsland(); return;
+      }
+      if (d.tab === callMode) { sendJSON({ type: 'tab-res', tab: d.tab, id: d.id, ok: true }); return; }
+      if (outgoing) { clearTimeout(outgoing.timer); sendJSON({ type: 'tab-cancel', id: outgoing.id }); outgoing = null; }
+      incoming = { tab: d.tab, id: d.id };
+      showIsland('ask', 'Switch', who() + ' wants to switch to ' + modeName(d.tab) + '. Do you want to switch?');
+    } else if (d.type === 'tab-res') {
+      if (!outgoing || outgoing.id !== d.id) return;
+      clearTimeout(outgoing.timer); const t = outgoing.tab; outgoing = null;
+      if (d.ok) { applyMode(t); hideIsland(); }
+      else flashIsland('Declined', who() + ' chose to stay on ' + modeName(callMode) + '.');
+    } else if (d.type === 'tab-cancel') {
+      if (incoming && incoming.id === d.id) { incoming = null; hideIsland(); }
+    }
+  }
+
+  function clearSwitch() {
+    if (outgoing) clearTimeout(outgoing.timer);
+    outgoing = incoming = null; hideIsland();
+  }
+
   /* ---------- Teardown ---------- */
 
   function cleanup() {
@@ -511,8 +721,9 @@
     cleanup();
     el.remote.srcObject = null; el.local.srcObject = null; el.wait.hidden = false;
     el.log.textContent = ''; setChat(false);
-    el.share.textContent = 'Share Screen'; el.share.setAttribute('aria-pressed', 'false');
+    el.share.textContent = 'Share'; el.share.setAttribute('aria-pressed', 'false');
     syncMute(false); syncCam(true); el.remote.muted = false; syncSpeaker();
+    clearSwitch(); callMode = 'video'; resetPreview(); facing = 'user'; syncFlip();
     peerName = ''; unread = 0; el.badge.hidden = true; el.nameModal.hidden = true; refreshNames(); setTab('video');
     el.call.hidden = true; el.lobby.hidden = false;
     el.joinBtn.disabled = false; el.lobbyMsg.textContent = '';
@@ -543,7 +754,13 @@
   el.cam.addEventListener('click', toggleCam);
   el.spk.addEventListener('click', () => { el.remote.muted = !el.remote.muted; syncSpeaker(); });
   el.share.addEventListener('click', () => (screenTrack ? stopShare() : startShare()));
-  tabs.forEach((t) => t.addEventListener('click', () => setTab(t.dataset.tab)));
+  tabs.forEach((t) => t.addEventListener('click', () => requestTab(t.dataset.tab)));
+  el.flip.addEventListener('click', flipCamera);
+  isl.yes.addEventListener('click', () => answerSwitch(true));
+  isl.no.addEventListener('click', () => answerSwitch(false));
+  isl.cancel.addEventListener('click', cancelOutgoing);
+  initDrag();
+  if (navigator.mediaDevices && navigator.mediaDevices.addEventListener) navigator.mediaDevices.addEventListener('devicechange', () => { if (camTrack) checkCams(); });
 
   el.nameBtn.addEventListener('click', () => openNameBox(false));
   el.nameCancel.addEventListener('click', () => { el.nameModal.hidden = true; });
